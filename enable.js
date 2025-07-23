@@ -2,6 +2,9 @@ let overlayMode = "over";
 const OVERLAY_MODES = ["aus", "over", "difference", "out"];
 let darken = false;
 
+const HOST = "cfp.is-a.dev";
+const SUBPATH = "/wplace";
+
 fetch = new Proxy(fetch, { apply: (target, thisArg, argList) => {
 	console.log(target, thisArg, argList);
 
@@ -21,8 +24,8 @@ fetch = new Proxy(fetch, { apply: (target, thisArg, argList) => {
 	if (url.hostname === "backend.wplace.live" && url.pathname.startsWith("/files/")) {
 		console.log("Intercepted fetch request to wplace.live");
 		if(overlayMode !== "aus") {
-			url.host = "cfp.is-a.dev";
-			url.pathname = `/wplace${url.pathname}`;
+			url.host = HOST;
+			url.pathname = `${SUBPATH}${url.pathname}`;
 			url.searchParams.set("blending", overlayMode);
 			url.searchParams.set("darken", darken + "");
 			console.log("Modified URL:", url);
