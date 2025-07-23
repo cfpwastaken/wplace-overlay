@@ -6,8 +6,8 @@ img = Image.open(sys.argv[1] + "_orig.png").convert("RGBA")
 w, h = img.size
 
 # Create new image with spacing
-new_w = w * 2 - 1
-new_h = h * 2 - 1
+new_w = w * 2
+new_h = h * 2
 new_img = Image.new("RGBA", (new_w, new_h), (0, 0, 0, 0))  # transparent background
 
 # Copy each pixel to its new position
