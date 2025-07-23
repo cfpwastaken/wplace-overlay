@@ -33,6 +33,7 @@ const VALID_BLENDING_MODES: Blend[] = ["over", "difference", "out"];
 app.use(async (req, res) => {
 	const query = req.query;
 	const blending = (query.blending || "over") as Blend;
+	const darken = query.darken === "true";
 	if (!VALID_BLENDING_MODES.includes(blending)) {
 		return res.status(400).send(`Invalid blending mode: ${blending}. Valid modes are: ${VALID_BLENDING_MODES.join(", ")}`);
 	}
@@ -66,9 +67,18 @@ app.use(async (req, res) => {
 				const { width: overlayWidth, height: overlayHeight } = await overlayImage.metadata();
 
 				// Resize original tile to match overlay dimensions using nearest neighbor
-				const resizedOriginal = await sharp(webpBuffer)
+				let resizedOriginal = await sharp(webpBuffer)
 					.resize(overlayWidth, overlayHeight, { kernel: "nearest" })
 					.toBuffer();
+				
+				// If darken is true, apply a darkening effect to the overlay
+				if (darken) {
+					console.log(`Darkening overlay for tile ${x}/${y}`);
+					const darkenBuffer = fs.readFileSync(path.join(__dirname, "darken.png"));
+					resizedOriginal = await sharp(darkenBuffer)
+						.composite([{ input: resizedOriginal }])
+						.toBuffer();
+				}
 
 				// Composite overlay onto resized original
 				outputBuffer = await sharp(resizedOriginal)

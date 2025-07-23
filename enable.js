@@ -1,5 +1,6 @@
 let overlayMode = "over";
 const OVERLAY_MODES = ["aus", "over", "difference", "out"];
+let darken = false;
 
 fetch = new Proxy(fetch, { apply: (target, thisArg, argList) => {
 	console.log(target, thisArg, argList);
@@ -23,6 +24,7 @@ fetch = new Proxy(fetch, { apply: (target, thisArg, argList) => {
 			url.host = "cfp.is-a.dev";
 			url.pathname = `/wplace${url.pathname}`;
 			url.searchParams.set("blending", overlayMode);
+			url.searchParams.set("darken", darken + "");
 			console.log("Modified URL:", url);
 			if(typeof argList[0] === "object") {
 				argList[0] = new Request(url, argList[0]);
@@ -60,6 +62,24 @@ function patchUI() {
 		console.log("Overlay mode set to:", overlayMode);
 		reloadText.style.display = "";
 	});
+
+	let darkenMode = document.createElement("button");
+	darkenMode.textContent = "Darken: " + (darken ? "An" : "Aus");
+	darkenMode.style.backgroundColor = "#0e0e0e7f";
+	darkenMode.style.color = "white";
+	darkenMode.style.border = "solid";
+	darkenMode.style.borderColor = "#1d1d1d7f";
+	darkenMode.style.borderRadius = "4px";
+	darkenMode.style.padding = "5px 10px";
+	darkenMode.style.cursor = "pointer";
+	darkenMode.style.backdropFilter = "blur(2px)";
+	
+	darkenMode.addEventListener("click", () => {
+		darken = !darken;
+		darkenMode.textContent = `Darken: ${darken ? "An" : "Aus"}`;
+		console.log("Darken mode set to:", darken);
+		reloadText.style.display = "";
+	});
 	
 	reloadText.textContent = "Rein und wieder raus zoomen, um das Overlay zu sehen!";
 	reloadText.style.color = "red";
@@ -75,6 +95,7 @@ function patchUI() {
 	
 	if(buttonContainer) {
 		buttonContainer.appendChild(blendButton);
+		buttonContainer.appendChild(darkenMode);
 		buttonContainer.appendChild(reloadText);
 		buttonContainer.classList.remove("items-center");
 		buttonContainer.classList.add("items-end");
