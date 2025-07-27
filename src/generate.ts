@@ -1,13 +1,14 @@
 import { fileURLToPath } from "url";
-import { GeospatialConverter } from "./wplace";
+import { GeospatialConverter } from "../wplace";
 import { createClient } from "redis";
 import { PNG } from "pngjs";
 import { readFile } from "fs/promises";
 import { createWriteStream } from "fs";
+import { spawn } from "child_process";
 
-const redis = await createClient({
-	url: process.env.REDIS_URL || "redis://localhost:6379"
-}).connect();
+// const redis = await createClient({
+// 	url: process.env.REDIS_URL || "redis://localhost:6379"
+// }).connect();
 const ZOOM = 11; // TODO: figure out why 11
 
 async function renderImageOnImage(png: PNG, img: PNG, x: number, y: number): Promise<void> {
@@ -45,10 +46,26 @@ export async function generateTile(tileX: number, tileY: number, artworks: Artwo
 	}
 
 	// Save the tile image
-	const tilePath = `./${tileX}_${tileY}.png`;
+	const tilePath = `./tiles/${tileX}/${tileY}_orig.png`;
 	await new Promise<void>((resolve) => {
 		png.pack().pipe(createWriteStream(tilePath)).on("finish", resolve);
 	});
+	await runCommand("python3", ["border.py", tileX + "/" + tileY], {
+		cwd: "tiles"
+	});
+}
+
+function runCommand(cmd: string, args: string[] = [], options: any = {}) {
+  return new Promise((resolve, reject) => {
+    const proc = spawn(cmd, args, { stdio: 'inherit', ...options });
+
+    proc.on('close', (code) => {
+      if (code === 0) resolve(code);
+      else reject(new Error(`Process exited with code ${code}`));
+    });
+
+    proc.on('error', reject);
+  });
 }
 
 export type Tile = {
@@ -64,9 +81,11 @@ export type Artwork = {
 	slug: string;
 	author: string;
 	data: string;
+	priority?: number; // Optional priority field
 };
 
-export async function generateTiles(geo: GeospatialConverter) {
+export async function generateTiles(redis: ReturnType<typeof createClient>) {
+	const geo = new GeospatialConverter(1000);
 	const keys = await redis.keys("artwork:*");
 	const rawArtworks = await redis.json.mGet(keys, "$");
 	const artworks: Artwork[] = rawArtworks.map((item: any) => {
@@ -94,6 +113,10 @@ export async function generateTiles(geo: GeospatialConverter) {
 		tiles.get(tileKey)!.push(artwork);
 	}
 
+	for (const artworksInTile of tiles.values()) {
+		artworksInTile.sort((a, b) => (b.priority || 0) - (a.priority || 0));
+	}
+
 	// Run generateTile for each tile (passing all artworks in that tile)
 	for (const [tileKey, artworksInTile] of tiles.entries()) {
 		const [tileX, tileY] = tileKey.split(":").map(Number);
@@ -101,7 +124,7 @@ export async function generateTiles(geo: GeospatialConverter) {
 	}
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url)) {
-	const geo = new GeospatialConverter(1000);
-	generateTiles(geo)
-}
+// if (process.argv[1] === fileURLToPath(import.meta.url)) {
+// 	const geo = new GeospatialConverter(1000);
+// 	generateTiles(geo)
+// }

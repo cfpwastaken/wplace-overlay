@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Wplace Overlay Admin</title>
+	<script src="main.js" defer></script>
+	<link rel="stylesheet" href="style.css">
+</head>
+<body>
+	<div id="login">
+		<h2>Wplace Overlay Admin</h2>
+		<button id="login-button">Log in</button>
+		<button style="display: none;" id="confirm-button">Confirm</button>
+	</div>
+	<div id="main" style="display: none;">
+		<div id="list">
+			<h2>Wplace Overlay - Artworks</h2>
+			<div id="artworks"></div>
+		</div>
+		<div id="new-artwork">
+			<h2>Wplace Overlay - New Artwork</h2>
+			<form action="/upload" method="post" enctype="multipart/form-data">
+				<input type="text" name="slug" placeholder="Slug" required>
+				<input type="text" name="artist" placeholder="Artist">
+				<input type="url" name="posurl" placeholder="Position URL" required>
+				<input type="file" name="file" accept=".png" required>
+				<button type="submit">Submit</button>
+			</form>
+		</div>
+	</div>
+</body>
+</html>
