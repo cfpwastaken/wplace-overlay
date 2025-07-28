@@ -9,18 +9,32 @@
 </head>
 <body>
 	<div id="login">
-		<h2>Wplace Overlay Admin</h2>
+		<h2>Wplace Overlay Admin [BETA!]</h2>
+		<span>
+			To manage artworks, log in using Wplace.
+			<b>This is for Alliance admins only.</b>
+			<ul>
+				<li>Click on Log in</li>
+				<li>Place a pixel at the linked location</li>
+				<li>Go back to this page</li>
+				<li>Click Confirm</li>
+			</ul>
+		</span>
 		<button id="login-button">Log in</button>
 		<button style="display: none;" id="confirm-button">Confirm</button>
+
+		<br><br><span><b>Don't have a Overlay Alliance yet?</b> <a href="https://discord.gg/6anTm35dvB">Join our discord</a></span>
 	</div>
 	<div id="main" style="display: none;">
+		<h1>Wplace Overlay Admin [BETA!]</h1>
+		<span id="user"></span>
 		<div id="list">
-			<h2>Wplace Overlay - Artworks</h2>
+			<h2>Artworks</h2>
 			<div id="artworks"></div>
 		</div>
 		<div id="new-artwork">
-			<h2>Wplace Overlay - New Artwork</h2>
-			<form action="/upload" method="post" enctype="multipart/form-data">
+			<h2>New Artwork</h2>
+			<form id="artwork-form" onsubmit="submitArtwork(event)">
 				<input type="text" name="slug" placeholder="Slug" required>
 				<input type="text" name="artist" placeholder="Artist">
 				<input type="url" name="posurl" placeholder="Position URL" required>

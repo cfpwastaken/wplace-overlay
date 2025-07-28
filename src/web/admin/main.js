@@ -1,26 +1,46 @@
 const $ = document.querySelector.bind(document);
 const $$ = document.querySelectorAll.bind(document);
 
-let authCoords = {lat: 0, lon: 0};
+let authCoords = { lat: 0, lon: 0 };
 let token = "";
 
 $("#login-button").addEventListener("click", async () => {
 	const res = await fetch("/api/login");
 	const data = await res.json();
-	if(res.status != 200) {
+	if (res.status != 200) {
 		alert("Error from Wplace: " + data.error);
+		console.log("Error from Wplace! " + data.error);
+		console.log(data.text);
 	}
-	authCoords = data.coords;
+	console.log(data);
+	authCoords = data.coord;
 	window.open(data.url);
 	$("#confirm-button").style.display = "";
 	$("#login-button").style.display = "none";
 })
 
+async function updateAlliance() {
+	const res = await fetch("/api/alliance", {
+		headers: {
+			"Authorization": "Bearer " + token
+		}
+	});
+	if (res.status != 200) {
+		console.error("Failed to fetch alliance data");
+		return;
+	}
+	const data = await res.json();
+
+	const jwt = token.split('.')[1];
+	const decoded = JSON.parse(atob(jwt));
+	$("#user").textContent = `Logged in as: ${decoded.preferred_username} (${data.name})`;
+}
+
 $("#confirm-button").addEventListener("click", async () => {
-	const res = await fetch("/api/verifyLogin?lat=" + coords.lat + "&lon=" + coords.lon);
+	const res = await fetch("/api/verifyLogin?lat=" + authCoords.lat + "&lon=" + authCoords.lon);
 	const status = res.status;
 	const data = await res.json();
-	if(status != 200) {
+	if (status != 200) {
 		return void alert(data.message);
 	}
 	token = data.token;
@@ -28,6 +48,7 @@ $("#confirm-button").addEventListener("click", async () => {
 	$("#main").style.display = "";
 
 	await displayArtworks();
+	await updateAlliance();
 })
 
 async function displayArtworks() {
@@ -51,16 +72,16 @@ async function displayArtworks() {
 				</div>
 			</div>
 			<div class="artwork-actions">
-				<button class="delete-artwork" data-id="${artwork.id}">Delete</button>
+				<button class="delete-artwork" data-slug="${artwork.slug}">Delete</button>
 			</div>
 		`;
 		artworksContainer.appendChild(artworkDiv);
 
 		const deleteButton = artworkDiv.querySelector(".delete-artwork");
 		deleteButton.addEventListener("click", async () => {
-			const artworkId = deleteButton.getAttribute("data-id");
+			const artworkSlug = deleteButton.getAttribute("data-slug");
 			if (confirm("Are you sure you want to delete this artwork?")) {
-				await fetch(`/api/artworks/${artworkId}`, {
+				await fetch(`/api/artworks/${artworkSlug}`, {
 					method: "DELETE",
 					headers: {
 						"Authorization": "Bearer " + token
@@ -70,4 +91,31 @@ async function displayArtworks() {
 			}
 		});
 	});
+}
+
+async function submitArtwork(e) {
+	e.preventDefault();
+
+	const form = e.target;
+	const formData = new FormData(form);
+
+	try {
+		const response = await fetch('/upload', {
+			method: 'POST',
+			headers: {
+				'Authorization': `Bearer ${token}`
+			},
+			body: formData
+		});
+
+		if (response.ok) {
+			console.log('Artwork uploaded successfully');
+			form.reset();
+			await displayArtworks();
+		} else {
+			console.error('Upload failed:', response.statusText);
+		}
+	} catch (error) {
+		console.error('Upload error:', error);
+	}
 }

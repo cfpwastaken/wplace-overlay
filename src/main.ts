@@ -29,7 +29,7 @@ app.use((req, res, next) => {
 	next();
 });
 
-app.use("/admin", express.static(path.join(__dirname, "webif")));
+app.use(express.static(path.join(__dirname, "web")));
 app.use("/artworks", express.static(path.join(__dirname, "..", "artworks")));
 app.use(fileUpload({
 	limits: { fileSize: 20 * 1024 * 1024 }, // 20 MB limit
@@ -60,6 +60,19 @@ const auth = expressjwt({
 	secret: JWT_SECRET,
 	issuer: "https://cfp.is-a.dev/wplace/"
 });
+
+app.get("/api/alliance", auth, async (req, res) => {
+	// @ts-expect-error
+	if(!req.auth.sub) {
+		return res.status(401).send("Unauthorized: No user ID found in token.");
+	}
+	// @ts-expect-error
+	const alliance = await getAllianceForUser(req.auth.sub);
+	if(!alliance) {
+		return res.status(403).send("Forbidden: You are not an admin of any alliance.");
+	}
+	res.json(alliance);
+})
 
 app.get("/api/artworks", auth, async (req, res) => {
 	// @ts-expect-error
@@ -143,7 +156,13 @@ app.post("/upload", auth, async (req, res) => {
 		};
 		await redis.json.set(`artwork:${alliance.slug}:${artwork.slug}`, "$", artwork);
 		console.log(`Uploaded artwork: ${artwork.slug} for ${alliance.slug} by ${artwork.author} at position ${artwork.position.lat}, ${artwork.position.lon}`);
-		res.redirect("/admin");
+		res.status(200).json({
+			message: "Artwork uploaded successfully",
+			artwork: {
+				...artwork,
+				url: `/artworks/${file.md5}`
+			}
+		});
 	});
 });
 
@@ -334,7 +353,7 @@ app.use(async (req, res) => {
 
 setInterval(async () => {
 	generateTiles(redis);
-}, 1000 * 60 * 10); // Run every 10 minutes
+}, 1000 * 60 * 5); // Run every 5 minutes
 
 generateTiles(redis);
 
