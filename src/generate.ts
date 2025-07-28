@@ -1,5 +1,5 @@
 import { fileURLToPath } from "url";
-import { GeospatialConverter } from "../wplace";
+import { GeospatialConverter } from "./wplace";
 import { createClient } from "redis";
 import { PNG } from "pngjs";
 import { readFile } from "fs/promises";

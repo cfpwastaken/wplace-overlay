@@ -1,11 +1,13 @@
 const $ = document.querySelector.bind(document);
 const $$ = document.querySelectorAll.bind(document);
 
+const API_ROOT = "../api/";
+
 let authCoords = { lat: 0, lon: 0 };
 let token = "";
 
 $("#login-button").addEventListener("click", async () => {
-	const res = await fetch("/api/login");
+	const res = await fetch(API_ROOT + "login");
 	const data = await res.json();
 	if (res.status != 200) {
 		alert("Error from Wplace: " + data.error);
@@ -20,7 +22,7 @@ $("#login-button").addEventListener("click", async () => {
 })
 
 async function updateAlliance() {
-	const res = await fetch("/api/alliance", {
+	const res = await fetch(API_ROOT + "alliance", {
 		headers: {
 			"Authorization": "Bearer " + token
 		}
@@ -37,7 +39,7 @@ async function updateAlliance() {
 }
 
 $("#confirm-button").addEventListener("click", async () => {
-	const res = await fetch("/api/verifyLogin?lat=" + authCoords.lat + "&lon=" + authCoords.lon);
+	const res = await fetch(API_ROOT + "verifyLogin?lat=" + authCoords.lat + "&lon=" + authCoords.lon);
 	const status = res.status;
 	const data = await res.json();
 	if (status != 200) {
@@ -52,7 +54,7 @@ $("#confirm-button").addEventListener("click", async () => {
 })
 
 async function displayArtworks() {
-	const artworks = await fetch("/api/artworks", {
+	const artworks = await fetch(API_ROOT + "artworks", {
 		headers: {
 			"Authorization": "Bearer " + token
 		}
@@ -64,7 +66,7 @@ async function displayArtworks() {
 		artworkDiv.className = "artwork";
 		artworkDiv.innerHTML = `
 			<div class="artwork-data">
-				<img src="/artworks/${artwork.data}" />
+				<img src="../artworks/${artwork.data}" />
 				<div class="artwork-info">
 					<h3>${artwork.slug}</h3>
 					<p>Artist: ${artwork.author}</p>
@@ -81,7 +83,7 @@ async function displayArtworks() {
 		deleteButton.addEventListener("click", async () => {
 			const artworkSlug = deleteButton.getAttribute("data-slug");
 			if (confirm("Are you sure you want to delete this artwork?")) {
-				const res = await fetch(`/api/artworks/${artworkSlug}`, {
+				const res = await fetch(`${API_ROOT}artworks/${artworkSlug}`, {
 					method: "DELETE",
 					headers: {
 						"Authorization": "Bearer " + token
@@ -104,7 +106,7 @@ async function submitArtwork(e) {
 	const formData = new FormData(form);
 
 	try {
-		const response = await fetch('/upload', {
+		const response = await fetch(`${API_ROOT}upload`, {
 			method: 'POST',
 			headers: {
 				'Authorization': `Bearer ${token}`
@@ -126,7 +128,7 @@ async function submitArtwork(e) {
 }
 
 $("#generate-now").addEventListener("click", async () => {
-	const res = await fetch("/api/generate", {
+	const res = await fetch(`${API_ROOT}generate`, {
 		method: "POST",
 		headers: {
 			"Authorization": "Bearer " + token

@@ -115,7 +115,7 @@ async function getAllianceForUser(userId: number) {
 	return null;
 }
 
-app.post("/upload", auth, async (req, res) => {
+app.post("/api/upload", auth, async (req, res) => {
 	if(!req.files || Object.keys(req.files).length === 0) {
 		return res.status(400).send("No files were uploaded.");
 	}
