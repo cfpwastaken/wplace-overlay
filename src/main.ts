@@ -342,6 +342,25 @@ const loadDarkenBuffer = async () => {
 };
 loadDarkenBuffer();
 
+app.get("/api/stats", (req, res) => {
+	const stats = {
+		cacheHitCount,
+		cacheMissCount,
+		cachedMapTilesCount: cachedMapTiles.size,
+		cachedFinalTilesCount: cachedFinalTiles.size,
+		cachedMapTilesSize: Array.from(cachedMapTiles.values()).reduce((acc, buf) => acc + buf.length, 0), // in bytes
+		cachedFinalTilesSize: Array.from(cachedFinalTiles.values()).reduce((acc, buf) => acc + buf.length, 0), // in bytes
+		totalRequests,
+		averageFetchTime: totalRequests > 0 ? totalFetchTime / totalRequests : 0,
+		averageProcessingTime: totalRequests > 0 ? totalProcessingTime / totalRequests : 0,
+		averageRequestTime: totalRequests > 0 ? totalRequestTime / totalRequests : 0,
+		totalFetchTime,
+		totalProcessingTime,
+		totalRequestTime
+	};
+	res.json(stats);
+});
+
 // Helper function to check if file exists asynchronously
 async function fileExists(filePath: string): Promise<boolean> {
 	try {
@@ -353,6 +372,15 @@ async function fileExists(filePath: string): Promise<boolean> {
 }
 
 const VALID_BLENDING_MODES: Blend[] = ["over", "difference", "out"];
+
+const cachedMapTiles: Map<string, Buffer> = new Map();
+const cachedFinalTiles: Map<string, Buffer> = new Map();
+let cacheHitCount = 0;
+let cacheMissCount = 0;
+let totalRequests = 0;
+let totalFetchTime = 0;
+let totalProcessingTime = 0;
+let totalRequestTime = 0;
 
 // Proxy all requests to wplace.live (by fetching the WEBPs and returning the response, leaving room to add more logic later)
 app.use(async (req, res) => {
@@ -376,7 +404,16 @@ app.use(async (req, res) => {
 		}
 		
 		const bufferStart = Date.now();
-		const webpBuffer = await response.arrayBuffer();
+		const webpBuffer = Buffer.from(await response.arrayBuffer());
+		if (cachedMapTiles.has(req.originalUrl)) {
+			if (cachedMapTiles.get(req.originalUrl) === webpBuffer && cachedFinalTiles.has(req.originalUrl)) {
+				console.log(`Cache hit for ${req.originalUrl}`);
+				cacheHitCount++;
+				return res.send(cachedFinalTiles.get(req.originalUrl));
+			}
+		}
+		cacheMissCount++;
+		cachedMapTiles.set(req.originalUrl, webpBuffer);
 		const bufferTime = Date.now() - bufferStart;
 
 		// Parse the request URL to extract tile coordinates
@@ -434,6 +471,9 @@ app.use(async (req, res) => {
 		}
 
 		const processingTime = Date.now() - processingStart;
+
+		// Cache the final output tile
+		cachedFinalTiles.set(req.originalUrl, outputBuffer);
 		
 		res.setHeader("Content-Type", "image/png");
 		res.send(outputBuffer);
@@ -441,6 +481,11 @@ app.use(async (req, res) => {
 		// Detailed timing breakdown
 		const totalTime = Date.now() - start;
 		console.log(`Tile ${urlMatch?.[1]}/${urlMatch?.[2]}: Total=${totalTime}ms, Fetch=${fetchTime}ms, Buffer=${bufferTime}ms, Processing=${processingTime}ms`);
+
+		totalRequests++;
+		totalFetchTime += fetchTime;
+		totalProcessingTime += processingTime;
+		totalRequestTime += totalTime;
 	} catch (error) {
 		console.error(`Error processing ${url}:`, error);
 		res.status(500).send("Internal Server Error");
