@@ -181,6 +181,7 @@ export type Artwork = {
 	author: string;
 	data: string;
 	priority?: number; // Optional priority field
+	protected?: boolean; // Optional protected field
 };
 
 export async function generateTiles(redis: ReturnType<typeof createClient>) {

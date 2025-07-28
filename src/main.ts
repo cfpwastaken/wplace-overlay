@@ -204,17 +204,20 @@ app.post("/api/replaceImage", auth, async (req, res) => {
 
 app.delete("/api/artworks/:slug", auth, async (req, res) => {// @ts-expect-error
 	if(!req.auth.sub) {
-		return res.status(401).send("Unauthorized: No user ID found in token.");
+		return res.status(401).send({ success: false, message: "Unauthorized: No user ID found in token." });
 	}
 	// @ts-expect-error
 	const alliance = await getAllianceForUser(req.auth.sub);
 	if(!alliance) {
-		return res.status(403).send("Forbidden: You are not an admin of any alliance.");
+		return res.status(403).send({ success: false, message: "Forbidden: You are not an admin of any alliance." });
 	}
 	const slug = req.params.slug;
-	const artwork = await redis.json.get(`artwork:${alliance.slug}:${slug}`);
+	const artwork = await redis.json.get(`artwork:${alliance.slug}:${slug}`) as Artwork | null;
 	if (!artwork) {
-		return res.status(404).send("Artwork not found.");
+		return res.status(404).send({ success: false, message: "Artwork not found." });
+	}
+	if(artwork.protected) {
+		return res.status(403).send({ success: false, message: "Forbidden: This artwork is protected and cannot be deleted." });
 	}
 	await redis.json.del(`artwork:${alliance.slug}:${slug}`);
 	console.log(`Deleted artwork: ${slug}`);

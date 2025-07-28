@@ -88,7 +88,7 @@ async function displayArtworks() {
 					}
 				});
 				if (res.status != 200) {
-					alert("Failed to delete artwork: " + res.statusText);
+					alert("Failed to delete artwork: " + (await res.json()).message);
 					return;
 				}
 				displayArtworks(); // Refresh the artworks list
