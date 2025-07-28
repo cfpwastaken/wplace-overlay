@@ -103,6 +103,7 @@ type Alliance = {
 	slug: string;
 	name: string;
 	admins: number[];
+	helpers: number[];
 }
 
 async function getAllianceForUser(userId: number) {
@@ -113,6 +114,23 @@ async function getAllianceForUser(userId: number) {
 		if (alliance && Array.isArray(alliance.admins) && alliance.admins.includes(userId)) {
 			return alliance;
 		}
+		if (alliance && Array.isArray(alliance.helpers) && alliance.helpers.includes(userId)) {
+			return alliance;
+		}
+	}
+	return null;
+}
+
+async function getUserRole(userId: number): Promise<"admin" | "helper" | null> {
+	const alliance = await getAllianceForUser(userId);
+	if (!alliance) {
+		return null;
+	}
+	if (alliance.admins.includes(userId)) {
+		return "admin";
+	}
+	if (alliance.helpers.includes(userId)) {
+		return "helper";
 	}
 	return null;
 }
@@ -213,6 +231,11 @@ app.delete("/api/artworks/:slug", auth, async (req, res) => {// @ts-expect-error
 	if(!alliance) {
 		return res.status(403).send({ success: false, message: "Forbidden: You are not an admin of any alliance." });
 	}
+	// @ts-expect-error
+	const role = await getUserRole(req.auth.sub);
+	if(role !== "admin") {
+		return res.status(403).send({ success: false, message: "Forbidden: Only admins can delete artworks." });
+	}
 	const slug = req.params.slug;
 	const artwork = await redis.json.get(`artwork:${alliance.slug}:${slug}`) as Artwork | null;
 	if (!artwork) {
@@ -298,6 +321,11 @@ app.get("/api/verifyLogin", async (req, res) => {
 });
 
 app.post("/api/generate", auth, async (req, res) => {
+	// @ts-expect-error
+	const role = await getUserRole(req.auth.sub);
+	if(role !== "admin") {
+		return res.status(403).send({ success: false, message: "Forbidden: Only admins can trigger tile generation. Tiles generate automatically every 5 minutes." });
+	}
 	generateTiles(redis);
 	res.json({ success: true, message: "Tiles generation started." });
 });
