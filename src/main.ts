@@ -406,7 +406,7 @@ app.use(async (req, res) => {
 		const bufferStart = Date.now();
 		const webpBuffer = Buffer.from(await response.arrayBuffer());
 		if (cachedMapTiles.has(req.originalUrl)) {
-			if (cachedMapTiles.get(req.originalUrl) === webpBuffer && cachedFinalTiles.has(req.originalUrl)) {
+			if (cachedMapTiles.get(req.originalUrl)?.equals(webpBuffer) && cachedFinalTiles.has(req.originalUrl)) {
 				console.log(`Cache hit for ${req.originalUrl}`);
 				cacheHitCount++;
 				return res.send(cachedFinalTiles.get(req.originalUrl));
