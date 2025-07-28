@@ -124,3 +124,18 @@ async function submitArtwork(e) {
 		console.error('Upload error:', error);
 	}
 }
+
+$("#generate-now").addEventListener("click", async () => {
+	const res = await fetch("/api/generate", {
+		method: "POST",
+		headers: {
+			"Authorization": "Bearer " + token
+		}
+	});
+	if (res.ok) {
+		alert("Tiles generation started successfully.");
+	} else {
+		const data = await res.json();
+		alert("Failed to start tiles generation: " + data.message);
+	}
+});

@@ -291,6 +291,11 @@ app.get("/api/verifyLogin", async (req, res) => {
 	})
 });
 
+app.post("/api/generate", auth, async (req, res) => {
+	generateTiles(redis);
+	res.json({ success: true, message: "Tiles generation started." });
+});
+
 const VALID_BLENDING_MODES: Blend[] = ["over", "difference", "out"];
 
 // Proxy all requests to wplace.live (by fetching the WEBPs and returning the response, leaving room to add more logic later)
