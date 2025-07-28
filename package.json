@@ -14,6 +14,7 @@
     "express": "^5.1.0",
     "express-fileupload": "^1.5.2",
     "express-jwt": "^8.5.1",
+    "express-rate-limit": "^8.0.1",
     "jsonwebtoken": "^9.0.2",
     "pngjs": "^7.0.0",
     "redis": "^5.6.1",

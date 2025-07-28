@@ -90,6 +90,7 @@ async function renderImagePortionOnImage(png: PNG, img: PNG, renderInfo: RenderI
 }
 
 export async function generateTile(tileX: number, tileY: number, artworks: Artwork[]) {
+	const start = Date.now();
 	console.log(`Generating tile at (${tileX}, ${tileY}) with ${artworks.length} artworks`);
 	const png = new PNG({
 		width: 1000,
@@ -126,6 +127,9 @@ export async function generateTile(tileX: number, tileY: number, artworks: Artwo
 	await runCommand("python3", ["border.py", tileX + "/" + tileY], {
 		cwd: "tiles"
 	});
+
+	const end = Date.now();
+	console.log(`Tile (${tileX}, ${tileY}) generated in ${end - start} ms`);
 }
 
 function runCommand(cmd: string, args: string[] = [], options: any = {}) {

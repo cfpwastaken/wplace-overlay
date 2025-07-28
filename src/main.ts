@@ -1,14 +1,16 @@
 import express from "express";
 import sharp, { type Blend } from "sharp";
 import path from "path";
-import fs from "fs";
 import { createClient } from "redis";
 import { generateTiles, type Artwork } from "./generate";
 import fileUpload from "express-fileupload";
 import { checkUser, generateAuthURL } from "./auth";
 import { v4 as uuid } from "uuid";
 import { sign } from "jsonwebtoken";
-import { expressjwt, type ExpressJwtRequest } from "express-jwt";
+import { expressjwt } from "express-jwt";
+import { readFile } from "fs/promises";
+import { existsSync } from "fs";
+import rateLimit from "express-rate-limit";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -224,7 +226,11 @@ app.delete("/api/artworks/:slug", auth, async (req, res) => {// @ts-expect-error
 	res.json({ message: "Artwork deleted successfully" });
 });
 
-app.get("/api/login", async (req, res) => {
+app.get("/api/login", rateLimit({
+	windowMs: 5 * 60 * 1000, // 5 minutes
+	max: 3, // Limit each IP to 3 requests per windowMs
+	message: "Too many login attempts, please try again later."
+}), async (req, res) => {
 	const auth = await generateAuthURL();
 	if(auth.error) {
 		return void res.status(500).json(auth);
@@ -328,9 +334,9 @@ app.use(async (req, res) => {
 			const localTilePath = path.join(__dirname, "..", "tiles", x, `${y}${blending != "over" ? "_orig" : ""}.png`);
 			
 			// Check if local tile overlay exists
-			if (fs.existsSync(localTilePath)) {
+			if (existsSync(localTilePath)) {
 				console.log(`Using local overlay for tile ${x}/${y}`);
-				const overlayBuffer = fs.readFileSync(localTilePath);
+				const overlayBuffer = await readFile(localTilePath);
 
 				const overlayImage = sharp(overlayBuffer);
 				const { width: overlayWidth, height: overlayHeight } = await overlayImage.metadata();
@@ -343,7 +349,7 @@ app.use(async (req, res) => {
 				// If darken is true, apply a darkening effect to the overlay
 				if (darken) {
 					console.log(`Darkening overlay for tile ${x}/${y}`);
-					const darkenBuffer = fs.readFileSync(path.join(__dirname, "darken.png"));
+					const darkenBuffer = await readFile(path.join(__dirname, "darken.png"));
 					resizedOriginal = await sharp(darkenBuffer)
 						.composite([{ input: resizedOriginal }])
 						.toBuffer();
