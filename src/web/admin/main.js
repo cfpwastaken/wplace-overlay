@@ -68,7 +68,7 @@ async function displayArtworks() {
 				<div class="artwork-info">
 					<h3>${artwork.slug}</h3>
 					<p>Artist: ${artwork.author}</p>
-					<p>Position: <a href="https://wplace.live/?lat=${artwork.position.lat}&lng=${artwork.position.lon}&zoom=14.5&season=0&opaque=1" target="_blank">${artwork.position.lat}, ${artwork.position.lon}</a></p>
+					<p>Position: <a href="https://wplace.live/?lat=${artwork.position.lat}&lng=${artwork.position.lon}&zoom=14.5&season=0&opaque=1&select=1" target="_blank">${artwork.position.lat}, ${artwork.position.lon}</a></p>
 				</div>
 			</div>
 			<div class="artwork-actions">
@@ -81,12 +81,16 @@ async function displayArtworks() {
 		deleteButton.addEventListener("click", async () => {
 			const artworkSlug = deleteButton.getAttribute("data-slug");
 			if (confirm("Are you sure you want to delete this artwork?")) {
-				await fetch(`/api/artworks/${artworkSlug}`, {
+				const res = await fetch(`/api/artworks/${artworkSlug}`, {
 					method: "DELETE",
 					headers: {
 						"Authorization": "Bearer " + token
 					}
 				});
+				if (res.status != 200) {
+					alert("Failed to delete artwork: " + res.statusText);
+					return;
+				}
 				displayArtworks(); // Refresh the artworks list
 			}
 		});
@@ -114,6 +118,7 @@ async function submitArtwork(e) {
 			await displayArtworks();
 		} else {
 			console.error('Upload failed:', response.statusText);
+			alert("Uploading artwork failed: " + response.statusText);
 		}
 	} catch (error) {
 		console.error('Upload error:', error);
