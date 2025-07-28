@@ -8,8 +8,8 @@ import { checkUser, generateAuthURL } from "./auth";
 import { v4 as uuid } from "uuid";
 import { sign } from "jsonwebtoken";
 import { expressjwt } from "express-jwt";
-import { readFile } from "fs/promises";
-import { existsSync } from "fs";
+import { readFile, access } from "fs/promises";
+import { constants } from "fs";
 import rateLimit from "express-rate-limit";
 
 const app = express();
@@ -302,10 +302,33 @@ app.post("/api/generate", auth, async (req, res) => {
 	res.json({ success: true, message: "Tiles generation started." });
 });
 
+// Pre-load darken.png into memory for better performance
+let darkenBuffer: Buffer | null = null;
+const loadDarkenBuffer = async () => {
+	try {
+		darkenBuffer = await readFile(path.join(__dirname, "darken.png"));
+		console.log("Darken buffer loaded into memory");
+	} catch (error) {
+		console.error("Failed to load darken.png:", error);
+	}
+};
+loadDarkenBuffer();
+
+// Helper function to check if file exists asynchronously
+async function fileExists(filePath: string): Promise<boolean> {
+	try {
+		await access(filePath, constants.F_OK);
+		return true;
+	} catch {
+		return false;
+	}
+}
+
 const VALID_BLENDING_MODES: Blend[] = ["over", "difference", "out"];
 
 // Proxy all requests to wplace.live (by fetching the WEBPs and returning the response, leaving room to add more logic later)
 app.use(async (req, res) => {
+	const start = Date.now();
 	const query = req.query;
 	const blending = (query.blending || "over") as Blend;
 	const darken = query.darken === "true";
@@ -316,17 +339,23 @@ app.use(async (req, res) => {
 	const url = `https://backend.wplace.live${originalUrlWithoutQuery}`;
 
 	try {
+		const fetchStart = Date.now();
 		const response = await fetch(url);
+		const fetchTime = Date.now() - fetchStart;
+		
 		if (!response.ok) {
 			return void res.status(response.status).send(`Error fetching ${url}: ${response.statusText}`);
 		}
+		
+		const bufferStart = Date.now();
 		const webpBuffer = await response.arrayBuffer();
+		const bufferTime = Date.now() - bufferStart;
 
 		// Parse the request URL to extract tile coordinates
-		// Expected format: /files/s0/tiles/X/Y.png
 		const urlMatch = req.originalUrl.match(/\/files\/s0\/tiles\/(\d+)\/(\d+)\.png/);
 		
 		let outputBuffer: Buffer;
+		const processingStart = Date.now();
 		
 		if (urlMatch && urlMatch[1] && urlMatch[2]) {
 			const x = urlMatch[1] as string;
@@ -334,7 +363,7 @@ app.use(async (req, res) => {
 			const localTilePath = path.join(__dirname, "..", "tiles", x, `${y}${blending != "over" ? "_orig" : ""}.png`);
 			
 			// Check if local tile overlay exists
-			if (existsSync(localTilePath)) {
+			if (await fileExists(localTilePath)) {
 				console.log(`Using local overlay for tile ${x}/${y}`);
 				const overlayBuffer = await readFile(localTilePath);
 
@@ -349,10 +378,13 @@ app.use(async (req, res) => {
 				// If darken is true, apply a darkening effect to the overlay
 				if (darken) {
 					console.log(`Darkening overlay for tile ${x}/${y}`);
-					const darkenBuffer = await readFile(path.join(__dirname, "darken.png"));
-					resizedOriginal = await sharp(darkenBuffer)
-						.composite([{ input: resizedOriginal }])
-						.toBuffer();
+					if (darkenBuffer) {
+						resizedOriginal = await sharp(darkenBuffer)
+							.composite([{ input: resizedOriginal }])
+							.toBuffer();
+					} else {
+						console.warn("Darken buffer not loaded, skipping darkening effect");
+					}
 				}
 
 				// Composite overlay onto resized original
@@ -373,8 +405,14 @@ app.use(async (req, res) => {
 				.toBuffer();
 		}
 
+		const processingTime = Date.now() - processingStart;
+		
 		res.setHeader("Content-Type", "image/png");
 		res.send(outputBuffer);
+		
+		// Detailed timing breakdown
+		const totalTime = Date.now() - start;
+		console.log(`Tile ${urlMatch?.[1]}/${urlMatch?.[2]}: Total=${totalTime}ms, Fetch=${fetchTime}ms, Buffer=${bufferTime}ms, Processing=${processingTime}ms`);
 	} catch (error) {
 		console.error(`Error processing ${url}:`, error);
 		res.status(500).send("Internal Server Error");
