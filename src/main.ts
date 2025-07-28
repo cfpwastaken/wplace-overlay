@@ -20,6 +20,7 @@ if(JWT_SECRET === "wplace") {
 
 type Auth = {
 	coord: { lat: number; lon: number };
+	expires: number;
 }
 
 let loggingIn: Auth[] = []; 
@@ -225,10 +226,17 @@ app.get("/api/login", async (req, res) => {
 	if(auth.error) {
 		return void res.status(500).json(auth);
 	}
-	// @ts-expect-error
-	loggingIn.push(auth);
+	loggingIn.push({
+		coord: auth.coord!,
+		expires: Date.now() + 1000 * 60 * 5 // 5 minutes expiration
+	});
 	res.json(auth);
 });
+
+setInterval(() => {
+	const now = Date.now();
+	loggingIn = loggingIn.filter(auth => auth.expires > now);
+}, 1000 * 60); // Clean up every minute
 
 app.get("/api/verifyLogin", async (req, res) => {
 	const auth = loggingIn.find(a => a.coord.lat === parseFloat(req.query.lat as string) && a.coord.lon === parseFloat(req.query.lon as string));
@@ -236,6 +244,12 @@ app.get("/api/verifyLogin", async (req, res) => {
 		return res.status(404).send({
 			success: false,
 			message: "No login session found for the provided coordinates."
+		});
+	}
+	if (Date.now() > auth.expires) {
+		return res.status(403).send({
+			success: false,
+			message: "Login session expired."
 		});
 	}
 	const user = await checkUser(auth.coord);
@@ -256,15 +270,17 @@ app.get("/api/verifyLogin", async (req, res) => {
 		});
 	}
 
+	loggingIn = loggingIn.filter(a => a !== auth);
+
 	const payload = {
 		sub: user.id,
 		preferred_username: user.name
 	};
-	const token = await sign(payload, JWT_SECRET, {
+	const token = sign(payload, JWT_SECRET, {
 		algorithm: "HS256",
 		expiresIn: "1h",
 		issuer: "https://cfp.is-a.dev/wplace/"
-	})
+	});
 
 	res.json({
 		success: true,
