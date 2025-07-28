@@ -494,7 +494,7 @@ app.use(async (req, res) => {
 
 setInterval(async () => {
 	generateTiles(redis);
-}, 1000 * 60 * 5); // Run every 5 minutes
+}, 1000 * 60 * 30); // Run every 30 minutes
 
 generateTiles(redis);
 
