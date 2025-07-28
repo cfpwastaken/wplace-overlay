@@ -3,8 +3,9 @@ import { GeospatialConverter } from "./wplace";
 import { createClient } from "redis";
 import { PNG } from "pngjs";
 import { readFile } from "fs/promises";
-import { createWriteStream } from "fs";
+import { createWriteStream, existsSync } from "fs";
 import { spawn } from "child_process";
+import { mkdir } from "fs/promises";
 
 // const redis = await createClient({
 // 	url: process.env.REDIS_URL || "redis://localhost:6379"
@@ -121,6 +122,10 @@ export async function generateTile(tileX: number, tileY: number, artworks: Artwo
 
 	// Save the tile image
 	const tilePath = `./tiles/${tileX}/${tileY}_orig.png`;
+	// Create directory if it doesn't exist
+	if (!existsSync(`./tiles/${tileX}`)) {
+		await mkdir(`./tiles/${tileX}`, { recursive: true });
+	}
 	await new Promise<void>((resolve) => {
 		png.pack().pipe(createWriteStream(tilePath)).on("finish", resolve);
 	});
