@@ -11,6 +11,8 @@ import { expressjwt } from "express-jwt";
 import { readFile, access } from "fs/promises";
 import { constants } from "fs";
 import rateLimit from "express-rate-limit";
+import { GeospatialConverter } from "./wplace";
+import { PNG } from "pngjs";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,6 +34,7 @@ app.use((req, res, next) => {
 	next();
 });
 
+app.use(express.json());
 app.use(express.static(path.join(__dirname, "web")));
 app.use("/artworks", express.static(path.join(__dirname, "..", "artworks")));
 app.use(fileUpload({
@@ -320,6 +323,133 @@ app.get("/api/verifyLogin", async (req, res) => {
 	})
 });
 
+async function renderImageOnImage(png: PNG, img: PNG, x: number, y: number): Promise<void> {
+	for (let yy = 0; yy < img.height; yy++) {
+		for (let xx = 0; xx < img.width; xx++) {
+			const srcIdx = (yy * img.width + xx) << 2;
+			const dstIdx = ((y + yy) * png.width + (x + xx)) << 2;
+
+			png.data[dstIdx] = img.data[srcIdx]!;
+			png.data[dstIdx + 1] = img.data[srcIdx + 1]!;
+			png.data[dstIdx + 2] = img.data[srcIdx + 2]!;
+			png.data[dstIdx + 3] = img.data[srcIdx + 3]!;
+		}
+	}
+}
+
+type RenderInfo = {
+	srcX: number;
+	srcY: number;
+	destX: number;
+	destY: number;
+	width: number;
+	height: number;
+};
+
+async function renderImagePortionOnImage(png: PNG, img: PNG, renderInfo: RenderInfo): Promise<void> {
+	for (let yy = 0; yy < renderInfo.height; yy++) {
+		for (let xx = 0; xx < renderInfo.width; xx++) {
+			const srcIdx = ((renderInfo.srcY + yy) * img.width + (renderInfo.srcX + xx)) << 2;
+			const dstIdx = ((renderInfo.destY + yy) * png.width + (renderInfo.destX + xx)) << 2;
+
+			// Check bounds to prevent errors
+			if (srcIdx >= 0 && srcIdx < img.data.length - 3 && 
+				dstIdx >= 0 && dstIdx < png.data.length - 3) {
+				png.data[dstIdx] = img.data[srcIdx]!;
+				png.data[dstIdx + 1] = img.data[srcIdx + 1]!;
+				png.data[dstIdx + 2] = img.data[srcIdx + 2]!;
+				png.data[dstIdx + 3] = img.data[srcIdx + 3]!;
+			}
+		}
+	}
+}
+
+app.post("/api/downloadLiveArtwork", async (req, res) => {
+	const fromPosUrl = req.body.fromPosUrl;
+	const toPosUrl = req.body.toPosUrl;
+	if (!fromPosUrl || !toPosUrl) {
+		return res.status(400).send({ success: false, message: "Missing required fields: fromPosUrl and toPosUrl." });
+	}
+	
+	try {
+		const fromPos = new URL(fromPosUrl);
+		const toPos = new URL(toPosUrl);
+		const fromLat = parseFloat(fromPos.searchParams.get("lat") || "0");
+		const fromLon = parseFloat(fromPos.searchParams.get("lng") || "0");
+		const toLat = parseFloat(toPos.searchParams.get("lat") || "0");
+		const toLon = parseFloat(toPos.searchParams.get("lng") || "0");
+		
+		if (isNaN(fromLat) || isNaN(fromLon) || isNaN(toLat) || isNaN(toLon)) {
+			return res.status(400).send({ success: false, message: "Invalid position URLs." });
+		}
+
+		console.log(`Generating artwork from ${fromLat}, ${fromLon} to ${toLat}, ${toLon}`);
+		
+		const ZOOM_LEVEL = 11;
+		const geo = new GeospatialConverter(1000);
+		
+		const from = geo.latLonToPixelsFloor(fromLat, fromLon, ZOOM_LEVEL);
+		const to = geo.latLonToPixelsFloor(toLat, toLon, ZOOM_LEVEL);
+		const tileSize = 1000;
+		console.log(`From: ${from}, To: ${to}`);
+		const fromTileX = Math.floor(from[0] / tileSize);
+		const fromTileY = Math.floor(from[1] / tileSize);
+		const toTileX = Math.floor(to[0] / tileSize);
+		const toTileY = Math.floor(to[1] / tileSize);
+
+		const originTileX = Math.min(fromTileX, toTileX);
+		const originTileY = Math.min(fromTileY, toTileY);
+
+		const tileWidth = Math.abs(toTileX - fromTileX) + 1;
+		const tileHeight = Math.abs(toTileY - fromTileY) + 1;
+		console.log(`Downloading tiles from (${fromTileX}, ${fromTileY}) to (${toTileX}, ${toTileY}) with size ${tileWidth}x${tileHeight}`);
+
+		const png = new PNG({
+			width: tileWidth * tileSize,
+			height: tileHeight * tileSize
+		});
+
+		for (let tileX = originTileX; tileX <= originTileX + tileWidth - 1; tileX++) {
+			for (let tileY = originTileY; tileY <= originTileY + tileHeight - 1; tileY++) {
+				const tile = await fetch(`https://backend.wplace.live/files/s0/tiles/${tileX}/${tileY}.png`).then(res => res.ok ? res.arrayBuffer() : null);
+				if (tile) {
+					await renderImageOnImage(
+						png,
+						PNG.sync.read(Buffer.from(tile)),
+						(tileX - originTileX) * tileSize,
+						(tileY - originTileY) * tileSize
+					);
+				}
+			}
+		}
+
+		const cropX1 = Math.min(from[0], to[0]) - originTileX * tileSize;
+		const cropY1 = Math.min(from[1], to[1]) - originTileY * tileSize;
+		const cropX2 = Math.max(from[0], to[0]) - originTileX * tileSize;
+		const cropY2 = Math.max(from[1], to[1]) - originTileY * tileSize;
+
+		const cropWidth = cropX2 - cropX1;
+		const cropHeight = cropY2 - cropY1;
+
+		const img = new PNG({ width: cropWidth, height: cropHeight });
+		await renderImagePortionOnImage(png, img, {
+			srcX: cropX1,
+			srcY: cropY1,
+			destX: 0,
+			destY: 0,
+			width: cropWidth,
+			height: cropHeight
+		});
+
+		const buffer = PNG.sync.write(img);
+		res.setHeader("Content-Type", "image/png");
+		res.send(buffer);
+	} catch (error) {
+		console.error("Error generating artwork:", error);
+		res.status(500).send({ success: false, message: "Internal server error while generating artwork." });
+	}
+});
+
 app.post("/api/generate", auth, async (req, res) => {
 	// @ts-expect-error
 	const role = await getUserRole(req.auth.sub);
@@ -359,6 +489,18 @@ app.get("/api/stats", (req, res) => {
 		totalRequestTime
 	};
 	res.json(stats);
+});
+
+app.post("/api/clearCache", auth, async (req, res) => {
+	// @ts-expect-error
+	const role = await getUserRole(req.auth.sub);
+	if(role !== "admin") {
+		return res.status(403).send({ success: false, message: "Forbidden: Only admins can clear the cache." });
+	}
+	cachedMapTiles.clear();
+	cachedFinalTiles.clear();
+	console.log("Cache cleared");
+	res.json({ success: true, message: "Cache cleared successfully." });
 });
 
 // Helper function to check if file exists asynchronously
