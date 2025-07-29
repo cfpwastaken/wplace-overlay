@@ -35,6 +35,7 @@ app.use((req, res, next) => {
 });
 
 app.use(express.json());
+app.use(express.urlencoded());
 app.use(express.static(path.join(__dirname, "web")));
 app.use("/artworks", express.static(path.join(__dirname, "..", "artworks")));
 app.use(fileUpload({
@@ -456,8 +457,10 @@ app.post("/api/generate", auth, async (req, res) => {
 	if(role !== "admin") {
 		return res.status(403).send({ success: false, message: "Forbidden: Only admins can trigger tile generation. Tiles generate automatically every 5 minutes." });
 	}
-	generateTiles(redis);
 	res.json({ success: true, message: "Tiles generation started." });
+	await generateTiles(redis);
+	cachedMapTiles.clear();
+	cachedFinalTiles.clear();
 });
 
 // Pre-load darken.png into memory for better performance
@@ -489,18 +492,6 @@ app.get("/api/stats", (req, res) => {
 		totalRequestTime
 	};
 	res.json(stats);
-});
-
-app.post("/api/clearCache", auth, async (req, res) => {
-	// @ts-expect-error
-	const role = await getUserRole(req.auth.sub);
-	if(role !== "admin") {
-		return res.status(403).send({ success: false, message: "Forbidden: Only admins can clear the cache." });
-	}
-	cachedMapTiles.clear();
-	cachedFinalTiles.clear();
-	console.log("Cache cleared");
-	res.json({ success: true, message: "Cache cleared successfully." });
 });
 
 // Helper function to check if file exists asynchronously
@@ -635,10 +626,8 @@ app.use(async (req, res) => {
 });
 
 setInterval(async () => {
-	await generateTiles(redis);
-	cachedMapTiles.clear();
-	cachedFinalTiles.clear();
-}, 1000 * 60 * 10); // Run every 10 minutes
+	generateTiles(redis);
+}, 1000 * 60 * 30); // Run every 30 minutes
 
 generateTiles(redis);
 
