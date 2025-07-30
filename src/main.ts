@@ -365,93 +365,97 @@ async function renderImagePortionOnImage(png: PNG, img: PNG, renderInfo: RenderI
 	}
 }
 
-app.post("/api/downloadLiveArtwork", async (req, res) => {
-	const fromPosUrl = req.body.fromPosUrl;
-	const toPosUrl = req.body.toPosUrl;
-	if (!fromPosUrl || !toPosUrl) {
-		return res.status(400).send({ success: false, message: "Missing required fields: fromPosUrl and toPosUrl." });
-	}
+// app.post("/api/downloadLiveArtwork", async (req, res) => {
+// 	const fromPosUrl = req.body.fromPosUrl;
+// 	const toPosUrl = req.body.toPosUrl;
+// 	if (!fromPosUrl || !toPosUrl) {
+// 		return res.status(400).send({ success: false, message: "Missing required fields: fromPosUrl and toPosUrl." });
+// 	}
 	
-	try {
-		const fromPos = new URL(fromPosUrl);
-		const toPos = new URL(toPosUrl);
-		const fromLat = parseFloat(fromPos.searchParams.get("lat") || "0");
-		const fromLon = parseFloat(fromPos.searchParams.get("lng") || "0");
-		const toLat = parseFloat(toPos.searchParams.get("lat") || "0");
-		const toLon = parseFloat(toPos.searchParams.get("lng") || "0");
+// 	try {
+// 		const fromPos = new URL(fromPosUrl);
+// 		const toPos = new URL(toPosUrl);
+// 		const fromLat = parseFloat(fromPos.searchParams.get("lat") || "0");
+// 		const fromLon = parseFloat(fromPos.searchParams.get("lng") || "0");
+// 		const toLat = parseFloat(toPos.searchParams.get("lat") || "0");
+// 		const toLon = parseFloat(toPos.searchParams.get("lng") || "0");
 		
-		if (isNaN(fromLat) || isNaN(fromLon) || isNaN(toLat) || isNaN(toLon)) {
-			return res.status(400).send({ success: false, message: "Invalid position URLs." });
-		}
+// 		if (isNaN(fromLat) || isNaN(fromLon) || isNaN(toLat) || isNaN(toLon)) {
+// 			return res.status(400).send({ success: false, message: "Invalid position URLs." });
+// 		}
 
-		console.log(`Generating artwork from ${fromLat}, ${fromLon} to ${toLat}, ${toLon}`);
+// 		console.log(`Generating artwork from ${fromLat}, ${fromLon} to ${toLat}, ${toLon}`);
 		
-		const ZOOM_LEVEL = 11;
-		const geo = new GeospatialConverter(1000);
+// 		const ZOOM_LEVEL = 11;
+// 		const geo = new GeospatialConverter(1000);
 		
-		const from = geo.latLonToPixelsFloor(fromLat, fromLon, ZOOM_LEVEL);
-		const to = geo.latLonToPixelsFloor(toLat, toLon, ZOOM_LEVEL);
-		const tileSize = 1000;
-		console.log(`From: ${from}, To: ${to}`);
-		const fromTileX = Math.floor(from[0] / tileSize);
-		const fromTileY = Math.floor(from[1] / tileSize);
-		const toTileX = Math.floor(to[0] / tileSize);
-		const toTileY = Math.floor(to[1] / tileSize);
+// 		const from = geo.latLonToPixelsFloor(fromLat, fromLon, ZOOM_LEVEL);
+// 		const to = geo.latLonToPixelsFloor(toLat, toLon, ZOOM_LEVEL);
+// 		const tileSize = 1000;
+// 		console.log(`From: ${from}, To: ${to}`);
+// 		const fromTileX = Math.floor(from[0] / tileSize);
+// 		const fromTileY = Math.floor(from[1] / tileSize);
+// 		const toTileX = Math.floor(to[0] / tileSize);
+// 		const toTileY = Math.floor(to[1] / tileSize);
 
-		const originTileX = Math.min(fromTileX, toTileX);
-		const originTileY = Math.min(fromTileY, toTileY);
+// 		const originTileX = Math.min(fromTileX, toTileX);
+// 		const originTileY = Math.min(fromTileY, toTileY);
 
-		const tileWidth = Math.abs(toTileX - fromTileX) + 1;
-		const tileHeight = Math.abs(toTileY - fromTileY) + 1;
-		console.log(`Downloading tiles from (${fromTileX}, ${fromTileY}) to (${toTileX}, ${toTileY}) with size ${tileWidth}x${tileHeight}`);
+// 		const tileWidth = Math.abs(toTileX - fromTileX) + 1;
+// 		const tileHeight = Math.abs(toTileY - fromTileY) + 1;
+// 		console.log(`Downloading tiles from (${fromTileX}, ${fromTileY}) to (${toTileX}, ${toTileY}) with size ${tileWidth}x${tileHeight}`);
 
-		const png = new PNG({
-			width: tileWidth * tileSize,
-			height: tileHeight * tileSize
-		});
+// 		const png = new PNG({
+// 			width: tileWidth * tileSize,
+// 			height: tileHeight * tileSize
+// 		});
 
-		for (let tileX = originTileX; tileX <= originTileX + tileWidth - 1; tileX++) {
-			for (let tileY = originTileY; tileY <= originTileY + tileHeight - 1; tileY++) {
-				const tile = await fetch(`https://backend.wplace.live/files/s0/tiles/${tileX}/${tileY}.png`).then(res => res.ok ? res.arrayBuffer() : null);
-				if (tile) {
-					await renderImageOnImage(
-						png,
-						PNG.sync.read(Buffer.from(tile)),
-						(tileX - originTileX) * tileSize,
-						(tileY - originTileY) * tileSize
-					);
-				}
-			}
-		}
+// 		for (let tileX = originTileX; tileX <= originTileX + tileWidth - 1; tileX++) {
+// 			for (let tileY = originTileY; tileY <= originTileY + tileHeight - 1; tileY++) {
+// 				const tile = await fetch(`https://backend.wplace.live/files/s0/tiles/${tileX}/${tileY}.png`).then(res => res.ok ? res.arrayBuffer() : null);
+// 				if (tile) {
+// 					await renderImageOnImage(
+// 						png,
+// 						PNG.sync.read(Buffer.from(tile)),
+// 						(tileX - originTileX) * tileSize,
+// 						(tileY - originTileY) * tileSize
+// 					);
+// 				}
+// 			}
+// 		}
 
-		const cropX1 = Math.min(from[0], to[0]) - originTileX * tileSize;
-		const cropY1 = Math.min(from[1], to[1]) - originTileY * tileSize;
-		const cropX2 = Math.max(from[0], to[0]) - originTileX * tileSize;
-		const cropY2 = Math.max(from[1], to[1]) - originTileY * tileSize;
+// 		const cropX1 = Math.min(from[0], to[0]) - originTileX * tileSize;
+// 		const cropY1 = Math.min(from[1], to[1]) - originTileY * tileSize;
+// 		const cropX2 = Math.max(from[0], to[0]) - originTileX * tileSize;
+// 		const cropY2 = Math.max(from[1], to[1]) - originTileY * tileSize;
 
-		const cropWidth = cropX2 - cropX1;
-		const cropHeight = cropY2 - cropY1;
+// 		const cropWidth = cropX2 - cropX1;
+// 		const cropHeight = cropY2 - cropY1;
 
-		const img = new PNG({ width: cropWidth, height: cropHeight });
-		await renderImagePortionOnImage(png, img, {
-			srcX: cropX1,
-			srcY: cropY1,
-			destX: 0,
-			destY: 0,
-			width: cropWidth,
-			height: cropHeight
-		});
+// 		const img = new PNG({ width: cropWidth, height: cropHeight });
+// 		await renderImagePortionOnImage(png, img, {
+// 			srcX: cropX1,
+// 			srcY: cropY1,
+// 			destX: 0,
+// 			destY: 0,
+// 			width: cropWidth,
+// 			height: cropHeight
+// 		});
 
-		const buffer = PNG.sync.write(img);
-		res.setHeader("Content-Type", "image/png");
-		res.send(buffer);
-	} catch (error) {
-		console.error("Error generating artwork:", error);
-		res.status(500).send({ success: false, message: "Internal server error while generating artwork." });
-	}
-});
+// 		const buffer = PNG.sync.write(img);
+// 		res.setHeader("Content-Type", "image/png");
+// 		res.send(buffer);
+// 	} catch (error) {
+// 		console.error("Error generating artwork:", error);
+// 		res.status(500).send({ success: false, message: "Internal server error while generating artwork." });
+// 	}
+// });
 
-app.post("/api/generate", auth, async (req, res) => {
+app.post("/api/generate", rateLimit({
+	windowMs: 10 * 60 * 1000, // 10 minutes
+	max: 1, // Limit to 1 request per windowMs
+	message: "Too many generate requests, please try again later.",
+}), auth, async (req, res) => {
 	// @ts-expect-error
 	const role = await getUserRole(req.auth.sub);
 	if(role !== "admin") {
