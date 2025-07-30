@@ -627,6 +627,9 @@ app.use(async (req, res) => {
 
 setInterval(async () => {
 	generateTiles(redis);
+	cachedMapTiles.clear();
+	cachedFinalTiles.clear();
+	console.log("Cache cleared and tiles regenerated.");
 }, 1000 * 60 * 30); // Run every 30 minutes
 
 generateTiles(redis);
