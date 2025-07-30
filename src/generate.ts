@@ -81,6 +81,7 @@ async function renderImagePortionOnImage(png: PNG, img: PNG, renderInfo: RenderI
 			// Check bounds to prevent errors
 			if (srcIdx >= 0 && srcIdx < img.data.length - 3 && 
 				dstIdx >= 0 && dstIdx < png.data.length - 3) {
+				if(img.data[srcIdx + 3] === 0) continue; // Skip fully transparent pixels
 				png.data[dstIdx] = img.data[srcIdx]!;
 				png.data[dstIdx + 1] = img.data[srcIdx + 1]!;
 				png.data[dstIdx + 2] = img.data[srcIdx + 2]!;
