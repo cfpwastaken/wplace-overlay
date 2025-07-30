@@ -29,6 +29,8 @@ type Auth = {
 
 let loggingIn: Auth[] = []; 
 
+app.set("trust proxy", 1);
+
 app.use((req, res, next) => {
 	console.log(`${req.method} request for '${req.url}'`);
 	next();
@@ -520,7 +522,17 @@ let totalProcessingTime = 0;
 let totalRequestTime = 0;
 
 // Proxy all requests to wplace.live (by fetching the WEBPs and returning the response, leaving room to add more logic later)
-app.use(async (req, res) => {
+app.use(rateLimit({
+  windowMs: 200,
+  max: 10,
+  skip: (req) => {
+    return typeof req.query.tag !== "undefined";
+  },
+	handler: (req, res, next) => {
+    console.warn(`Burst blocked from IP ${req.ip} at ${new Date().toISOString()}`);
+    res.status(429).send("Too many requests in a short burst. Please add a ?tag=<YOUR_PROJECT> query parameter to skip rate limiting for automated projects!");
+  }
+}), async (req, res) => {
 	const start = Date.now();
 	const query = req.query;
 	const blending = (query.blending || "over") as Blend;
