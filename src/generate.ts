@@ -255,7 +255,7 @@ export async function generateTiles(redis: ReturnType<typeof createClient>) {
 	// Run generateTile for each tile (passing all artworks in that tile)
 	for (const [tileKey, artworksInTile] of tiles.entries()) {
 		const [tileX, tileY] = tileKey.split(":").map(Number);
-		generateTile(tileX!, tileY!, artworksInTile);
+		await generateTile(tileX!, tileY!, artworksInTile);
 	}
 }
 
