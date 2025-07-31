@@ -13,6 +13,7 @@ import { constants } from "fs";
 import rateLimit from "express-rate-limit";
 import { GeospatialConverter } from "./wplace";
 import { PNG } from "pngjs";
+import slowDown from "express-slow-down";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -522,16 +523,11 @@ let totalProcessingTime = 0;
 let totalRequestTime = 0;
 
 // Proxy all requests to wplace.live (by fetching the WEBPs and returning the response, leaving room to add more logic later)
-app.use(rateLimit({
-  windowMs: 200,
-  max: 10,
-  skip: (req) => {
-    return typeof req.query.tag !== "undefined";
-  },
-	handler: (req, res, next) => {
-    console.warn(`Burst blocked from IP ${req.ip} at ${new Date().toISOString()}`);
-    res.status(429).send("Too many requests in a short burst. Please add a ?tag=<YOUR_PROJECT> query parameter to skip rate limiting for automated projects!");
-  }
+app.use(slowDown({
+	windowMs: 1000 * 5, // 5 seconds
+	delayAfter: 10, // Delay after 10 requests
+	delayMs: (hits) => hits * 100, // Delay 100ms for each request after the 10th
+	maxDelayMs: 1000, // Maximum delay of 1 second
 }), async (req, res) => {
 	const start = Date.now();
 	const query = req.query;
