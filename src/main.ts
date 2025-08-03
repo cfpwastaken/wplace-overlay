@@ -545,6 +545,7 @@ app.use(slowDown({
 		const fetchTime = Date.now() - fetchStart;
 		
 		if (!response.ok) {
+			console.error(`Error fetching ${url}:`, response.status, response.statusText);
 			return void res.status(response.status).send(`Error fetching ${url}: ${response.statusText}`);
 		}
 		

@@ -8,6 +8,7 @@ export async function generateAuthURL() {
 		const res = await fetch(`https://backend.wplace.live/s0/pixel/${tileX}/${tileY}?x=${pixelX}&y=${pixelY}`);
 		if(res.status != 200) {
 			const text = await res.text();
+			console.error("[Auth] Error fetching pixel data (generate):", res.status, res.statusText, text);
 			return {
 				error: res.status + " " + res.statusText,
 				text
@@ -70,14 +71,23 @@ export async function checkUser(coord: { lat: number; lon: number }) {
 		headers: {
 			"Content-Type": "application/json",
 		},
-	}).then(res => res.json()) as {
+	});
+	if(res.status != 200) {
+		const text = await res.text();
+		console.error("[Auth] Error fetching pixel data (check):", res.status, res.statusText, text);
+		return {
+			error: res.status + " " + res.statusText,
+			text
+		}
+	}
+	const data = await res.json() as {
 		paintedBy: {
 			id: number;
 			name: string;
 		};
 	};
 	return {
-		id: res.paintedBy.id,
-		name: res.paintedBy.name,
+		id: data.paintedBy.id,
+		name: data.paintedBy.name,
 	}
 }
