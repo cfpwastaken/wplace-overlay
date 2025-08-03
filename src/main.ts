@@ -262,7 +262,7 @@ app.get("/api/login", rateLimit({
 	message: "Too many login attempts, please try again later."
 }), async (req, res) => {
 	const auth = await generateAuthURL();
-	if(auth.error) {
+	if('error' in auth) {
 		return void res.status(500).json(auth);
 	}
 	loggingIn.push({
@@ -292,6 +292,9 @@ app.get("/api/verifyLogin", async (req, res) => {
 		});
 	}
 	const user = await checkUser(auth.coord);
+	if("error" in user) {
+		return res.status(500).json(user);
+	}
 	// loggingIn = loggingIn.filter(a => a !== auth);
 	// const sessionId = uuid();
 	// const session: Session = {
@@ -545,7 +548,7 @@ app.use(slowDown({
 		const fetchTime = Date.now() - fetchStart;
 		
 		if (!response.ok) {
-			console.error(`Error fetching ${url}:`, response.status, response.statusText);
+			if(response.status !== 404) console.error(`Error fetching ${url}:`, response.status, response.statusText);
 			return void res.status(response.status).send(`Error fetching ${url}: ${response.statusText}`);
 		}
 		

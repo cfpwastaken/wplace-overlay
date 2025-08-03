@@ -1,3 +1,5 @@
+import { backendError } from "./errors";
+
 export async function generateAuthURL() {
 	let coord = randomAntarcticaCoord();
 	let unusedCoord = false;
@@ -9,10 +11,7 @@ export async function generateAuthURL() {
 		if(res.status != 200) {
 			const text = await res.text();
 			console.error("[Auth] Error fetching pixel data (generate):", res.status, res.statusText, text);
-			return {
-				error: res.status + " " + res.statusText,
-				text
-			}
+			return backendError(res.status, res.statusText, text);
 		}
 		const data = await res.json() as {
 			paintedBy: {
@@ -75,10 +74,7 @@ export async function checkUser(coord: { lat: number; lon: number }) {
 	if(res.status != 200) {
 		const text = await res.text();
 		console.error("[Auth] Error fetching pixel data (check):", res.status, res.statusText, text);
-		return {
-			error: res.status + " " + res.statusText,
-			text
-		}
+		return backendError(res.status, res.statusText, text);
 	}
 	const data = await res.json() as {
 		paintedBy: {
