@@ -530,6 +530,25 @@ let totalFetchTime = 0;
 let totalProcessingTime = 0;
 let totalRequestTime = 0;
 
+app.get("/enable.js", (req, res) => {
+	res.setHeader("Content-Type", "application/javascript");
+	res.sendFile(path.join(__dirname, "enable.js"));
+})
+
+app.get("/enable-old.js", (req, res) => {
+	res.setHeader("Content-Type", "application/javascript");
+	res.sendFile(path.join(__dirname, "enable-old.js"));
+});
+
+// app.use(slowDown({
+// 	windowMs: 1000 * 5, // 5 seconds
+// 	delayAfter: 10, // Delay after 10 requests
+// 	delayMs: (hits) => hits * 100, // Delay 100ms for each request after the 10th
+// 	maxDelayMs: 1000, // Maximum delay of 1 second
+// }), async (req, res) => {
+// 	res.sendFile(path.join(__dirname, "update-overlay.png"));
+// });
+
 // Proxy all requests to wplace.live (by fetching the WEBPs and returning the response, leaving room to add more logic later)
 app.use(slowDown({
 	windowMs: 1000 * 5, // 5 seconds
@@ -606,9 +625,12 @@ app.use(slowDown({
 					}
 				}
 
+				// const updateOverlayImage = await readFile("update-overlay-transparent.png");
+
 				// Composite overlay onto resized original
 				outputBuffer = await sharp(resizedOriginal)
 					.composite([{ input: overlayBuffer, blend: blending }])
+					// .composite([{ input: updateOverlayImage, blend: "over" }])
 					.toFormat("png")
 					.toBuffer();
 			} else {
