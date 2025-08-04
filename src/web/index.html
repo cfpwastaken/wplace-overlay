@@ -4,19 +4,6 @@
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Wplace Overlay</title>
-	<script defer>
-		document.querySelector("#copy-code").addEventListener("click", async () => {
-			const code = await fetch("enable.js").then(res => res.text());
-			navigator.clipboard.writeText(code);
-			alert("Code copied to clipboard!");
-		});
-
-		document.querySelector("#copy-code-old").addEventListener("click", async () => {
-			const code = await fetch("enable-old.js").then(res => res.text());
-			navigator.clipboard.writeText(code);
-			alert("Code copied to clipboard!");
-		});
-	</script>
 
 	<style>
 		body {
@@ -43,7 +30,7 @@
 	</style>
 </head>
 <body>
-	<h1>Wplace Overlay v1.0-beta</h1>
+	<h1>Wplace Overlay v2.0-beta</h1>
 
 	<a href="admin/">Portal for Alliance Admins</a> &middot; <a href="https://discord.gg/6anTm35dvB">Join our discord!</a>
 
@@ -51,7 +38,7 @@
 
 	<span>Overlay for Wplace.</span>
 
-	<h2>Aktivieren mit Lesezeichen (HANDY):</h2>
+	<h2>Aktivieren mit Lesezeichen / Bookmarklet (HANDY):</h2>
 	<a href="bookmark.txt">Lesezeichen</a>
 	<span>iOS ungetestet!</span><br>
 	<video src="mobile.mp4" controls></video>
@@ -70,14 +57,23 @@
 	<button id="copy-code">Code kopieren</button>
 	<button id="copy-code-old">(Alt / Old) Code kopieren</button>
 
-	<h2>Bekannte Probleme:</h2>
-	<ul>
-		<li>Die Overlay Pixel werden in einer Ecke vom Pixel angezeigt, nicht in der Mitte</li>
-	</ul>
-
 	<h2>Externe Links:</h2>
 	<ul>
 		<li><a href="https://github.com/cfpwastaken/wplace-overlay">GitHub</a></li>
 	</ul>
+
+	<script defer>
+		document.querySelector("#copy-code").addEventListener("click", async () => {
+			const code = await fetch("enable.js").then(res => res.text());
+			navigator.clipboard.writeText(code);
+			alert("Code copied to clipboard!");
+		});
+
+		document.querySelector("#copy-code-old").addEventListener("click", async () => {
+			const code = await fetch("enable-old.js").then(res => res.text());
+			navigator.clipboard.writeText(code);
+			alert("Code copied to clipboard!");
+		});
+	</script>
 </body>
 </html>

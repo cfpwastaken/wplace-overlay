@@ -53,8 +53,10 @@ app.get("/dracula.css", (req, res) => {
 	res.sendFile(path.join(__dirname, "dracula.css"));
 });
 
-app.get("/bookmark.txt", (req, res) => {
-	res.sendFile(path.join(__dirname, "bookmark.txt"));
+app.get("/bookmark.txt", async (req, res) => {
+	const enc = encodeURIComponent(await readFile(path.join(__dirname, "enable.js"), "utf-8"));
+	res.setHeader("Content-Type", "text/plain");
+	res.send("javascript:" + enc);
 });
 
 app.get("/mobile.mp4", (req, res) => {
