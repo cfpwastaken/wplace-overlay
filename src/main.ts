@@ -514,6 +514,11 @@ async function fileExists(filePath: string): Promise<boolean> {
 	}
 }
 
+app.use("/tiles", (req, res, next) => {
+	res.setHeader("Cache-Control", "public, max-age=600, must-revalidate");
+	next();
+}, express.static(path.join(__dirname, "..", "tiles")));
+
 const VALID_BLENDING_MODES: Blend[] = ["over", "difference", "out"];
 
 const cachedMapTiles: Map<string, Buffer> = new Map();
