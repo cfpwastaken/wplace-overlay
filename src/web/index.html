@@ -27,6 +27,16 @@
 			color: #61dafb;
 			text-decoration: underline;
 		}
+
+		button {
+			background-color: #1d1d1d;
+			color: whitesmoke;
+			border: 2px solid #2e2e2e;
+			padding: 10px 20px;
+			border-radius: 5px;
+			cursor: pointer;
+			margin-right: 10px;
+		}
 	</style>
 </head>
 <body>
@@ -37,25 +47,37 @@
 	<br><br>
 
 	<span>Overlay for Wplace.</span>
+	
+	<br><br>
 
-	<h2>Aktivieren mit Lesezeichen / Bookmarklet (HANDY):</h2>
-	<a href="bookmark.txt">Lesezeichen</a>
-	<span>iOS ungetestet!</span><br>
-	<video src="mobile.mp4" controls></video>
+	<span>Choose your platform:</span>
+	<button id="platform-pc">PC</button>
+	<button id="platform-mobile">Mobile</button>
 
-	<h2>Aktivieren mit Tampermonkey:</h2>
-	<a href="https://greasyfork.org/en/scripts/543603-wplace-overlay">Tampermonkey Script</a>
+	<div id="tampermonkey" style="display: none;">
+		<h2>Aktivieren mit Tampermonkey:</h2>
+		<a href="https://greasyfork.org/en/scripts/543603-wplace-overlay">Tampermonkey Script</a>
+	</div>
 
-	<h2>Aktivieren mit Console (NUR PC):</h2>
-	<ul>
-		<li>Strg+Shift+I drücken</li>
-		<li>Auf den Tab "Console" wechseln</li>
-		<li>Den Code in die Konsole einfügen und Enter drücken (wenn das kopieren blockiert wird "allow pasting" eingeben und erneut versuchen)</li>
-		<li>Raus und wieder reinzoomen um die Pixel zu aktualisieren</li>
-	</ul>
+	<div id="bookmarklet" style="display: none;">
+		<h2>Aktivieren mit Lesezeichen / Bookmarklet:</h2>
+		<a href="bookmark.txt">Lesezeichen</a>
+		<span>iOS ungetestet!</span><br>
+		<video src="mobile.mp4" controls></video>
+	</div>
 
-	<button id="copy-code">Code kopieren</button>
-	<button id="copy-code-old">(Alt / Old) Code kopieren</button>
+	<div id="console" style="display: none;">
+		<h2>Aktivieren mit Console:</h2>
+		<ul>
+			<li>Strg+Shift+I drücken</li>
+			<li>Auf den Tab "Console" wechseln</li>
+			<li>Den Code in die Konsole einfügen und Enter drücken (wenn das kopieren blockiert wird "allow pasting" eingeben und erneut versuchen)</li>
+			<li>Raus und wieder reinzoomen um die Pixel zu aktualisieren</li>
+		</ul>
+	
+		<button id="copy-code">Code kopieren</button>
+		<button id="copy-code-old">(Alt / Old) Code kopieren</button>
+	</div>
 
 	<h2>Externe Links:</h2>
 	<ul>
@@ -73,6 +95,18 @@
 			const code = await fetch("enable-old.js").then(res => res.text());
 			navigator.clipboard.writeText(code);
 			alert("Code copied to clipboard!");
+		});
+
+		document.querySelector("#platform-pc").addEventListener("click", () => {
+			document.querySelector("#bookmarklet").style.display = "block";
+			document.querySelector("#tampermonkey").style.display = "block";
+			document.querySelector("#console").style.display = "block";
+		});
+
+		document.querySelector("#platform-mobile").addEventListener("click", () => {
+			document.querySelector("#bookmarklet").style.display = "block";
+			document.querySelector("#tampermonkey").style.display = "none";
+			document.querySelector("#console").style.display = "none";
 		});
 	</script>
 </body>
