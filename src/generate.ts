@@ -253,9 +253,10 @@ export type Artwork = {
 	data: string;
 	priority?: number; // Optional priority field
 	protected?: boolean; // Optional protected field
+	dirty?: boolean; // Optional dirty field to indicate if the artwork needs reprocessing
 };
 
-export async function generateTiles(redis: ReturnType<typeof createClient>) {
+export async function generateTiles(redis: ReturnType<typeof createClient>, ignoreDirty = false) {
 	const geo = new GeospatialConverter(1000);
 	const keys = await redis.keys("artwork:*");
 	const rawArtworks = await redis.json.mGet(keys, "$");
@@ -270,10 +271,10 @@ export async function generateTiles(redis: ReturnType<typeof createClient>) {
 	// Group artworks by tile, considering artwork dimensions
 	const tiles: Map<string, Artwork[]> = new Map();
 	for (const artwork of artworks) {
+		if (!ignoreDirty && !artwork.dirty) continue;
 		let { lat, lon } = artwork.position;
 		lat = +Number(lat).toFixed(7);
 		lon = +Number(lon).toFixed(7);
-		// if(artwork.slug == "discord-qr") continue;
 
 		// Load artwork to get its dimensions
 		try {

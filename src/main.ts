@@ -183,6 +183,7 @@ app.post("/api/upload", auth, async (req, res) => {
 				lat, lon
 			},
 			data: file.md5,
+			dirty: true,
 		};
 		await redis.json.set(`artwork:${alliance.slug}:${artwork.slug}`, "$", artwork);
 		console.log(`Uploaded artwork: ${artwork.slug} for ${alliance.slug} by ${artwork.author} at position ${artwork.position.lat}, ${artwork.position.lon}`);
@@ -193,6 +194,7 @@ app.post("/api/upload", auth, async (req, res) => {
 				url: `/artworks/${file.md5}`
 			}
 		});
+		await generateTiles(redis);
 	});
 });
 
@@ -224,10 +226,12 @@ app.post("/api/replaceImage", auth, async (req, res) => {
 		const updatedArtwork: Artwork = {
 			...artwork,
 			data: file.md5,
+			dirty: true
 		};
 		await redis.json.set(`artwork:${alliance.slug}:${slug}`, "$", updatedArtwork);
 		console.log(`Replaced image for artwork: ${slug}`);
 		res.json({ message: "Image replaced successfully", artwork: updatedArtwork });
+		await generateTiles(redis);
 	});
 })
 
@@ -678,13 +682,13 @@ app.use("/files", slowDown({
 });
 
 setInterval(async () => {
-	generateTiles(redis);
+	generateTiles(redis, false);
 	cachedMapTiles.clear();
 	cachedFinalTiles.clear();
 	console.log("Cache cleared and tiles regenerated.");
 }, 1000 * 60 * 30); // Run every 30 minutes
 
-generateTiles(redis);
+generateTiles(redis, false);
 
 app.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
