@@ -1,18 +1,39 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en" class="dark">
 <head>
 	<meta charset="UTF-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1.0">
 	<title>Wplace Overlay Admin</title>
 	<script src="main.js" defer></script>
 	<link rel="stylesheet" href="style.css">
+	<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/basecoat-css@0.3.0/dist/basecoat.cdn.min.css">
+	<script src="https://cdn.jsdelivr.net/npm/basecoat-css@0.3.0/dist/js/all.min.js" defer></script>
 </head>
 <body>
+	<div id="toaster" class="toaster"></div>
+
+	<dialog id="generate-dialog" class="dialog" aria-labelledby="generate-dialog-title" aria-describedby="generate-dialog-description">
+		<article>
+			<header>
+				<h2 id="generate-dialog-title">Artwork has been uploaded.</h2>
+				<p id="generate-dialog-description">It can take <b>up to 30 minutes</b> for the artwork to be processed and appear on the canvas. Would you like to rush this process (1-2 minutes)? You can only do this once every 10 minutes.</p>
+			</header>
+
+			<footer>
+				<button class="btn-outline" onclick="document.getElementById('generate-dialog').close()">No, thanks</button>
+				<button class="btn-primary" id="rush-button">Rush</button>
+			</footer>
+		</article>
+	</dialog>
 	<div id="login">
-		<h2>Wplace Overlay Admin [BETA!]</h2>
+		<h1>Wplace Overlay Admin <span class="badge-destructive">BETA</span></h1>
+		<div class="alert">
+			<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-info-icon lucide-info"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+			<h2>Alliance admins only</h2>
+			<section>This only works if you have registered your alliance with the owner of this instance beforehand.</section>
+		</div>
 		<span>
 			To manage artworks, log in using Wplace.
-			<b>This is for Alliance admins only.</b>
 			<ul>
 				<li>Click on Log in</li>
 				<li>Place a pixel at the linked location</li>
@@ -20,27 +41,37 @@
 				<li>Click Confirm</li>
 			</ul>
 		</span>
-		<button id="login-button">Log in</button>
-		<button style="display: none;" id="confirm-button">Confirm</button>
+		<button class="btn" id="login-button">Log in</button>
+		<button class="btn" style="display: none;" id="confirm-button">Confirm</button>
 
-		<br><br><span><b>Don't have a Overlay Alliance yet?</b> <a href="https://discord.gg/6anTm35dvB">Join our discord</a></span>
+		<br><br><span><b>Don't have a Overlay Alliance yet?</b> <a href="https://discord.gg/6anTm35dvB" class="btn-link">Join our discord</a></span>
 	</div>
 	<div id="main" style="display: none;">
-		<h1>Wplace Overlay Admin [BETA!]</h1>
+		<h1>Wplace Overlay Admin <span class="badge-destructive">BETA</span></h1>
 		<span id="user"></span>
 		<div id="list">
-			<h2>Artworks</h2> <button onclick="displayArtworks()">Refresh</button> <button id="generate-now">Generate now</button>
+			<h2>Artworks</h2>
+			<button class="btn-secondary" onclick="displayArtworks()">Refresh</button>
+			<button class="btn-secondary" id="generate-now">Rush now</button>
 			<div id="artworks"></div>
 		</div>
 		<div id="new-artwork">
 			<h2>New Artwork</h2>
-			<form id="artwork-form" onsubmit="submitArtwork(event)">
-				<input type="text" name="slug" placeholder="Slug" required>
-				<input type="text" name="artist" placeholder="Artist">
-				<input type="url" name="posurl" placeholder="Position URL" required>
-				<input type="file" name="file" accept=".png" required>
-				<button type="submit">Submit</button>
-			</form>
+			<div style="display: flex; gap: 15px;">
+				<form id="artwork-form" onsubmit="submitArtwork(event)" class="form" style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
+					<input type="text" name="slug" placeholder="Slug" required>
+					<input type="text" name="artist" placeholder="Artist">
+					<input type="url" name="posurl" placeholder="Position URL" required>
+					<input type="file" name="file" accept=".png" required>
+					<button class="btn" type="submit">Submit</button>
+				</form>
+				<div style="flex: 1; display: flex; flex-direction: column; gap: 25px;">
+					<p>Slug: must be unique, all lowercase and not include spaces</p>
+					<p>Artist: optional</p>
+					<p>Position URL: must be a valid Wplace position URL (from the share button) for the top-left corner of the artwork</p>
+					<p>File: must be a <b>1:1 (not upscaled) PNG</b> image</p>
+				</div>
+			</div>
 		</div>
 	</div>
 </body>
