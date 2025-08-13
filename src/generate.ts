@@ -271,7 +271,6 @@ export async function generateTiles(redis: ReturnType<typeof createClient>, igno
 	// Group artworks by tile, considering artwork dimensions
 	const tiles: Map<string, Artwork[]> = new Map();
 	for (const artwork of artworks) {
-		if (!ignoreDirty && !artwork.dirty) continue;
 		let { lat, lon } = artwork.position;
 		lat = +Number(lat).toFixed(7);
 		lon = +Number(lon).toFixed(7);
@@ -327,6 +326,10 @@ export async function generateTiles(redis: ReturnType<typeof createClient>, igno
 	// Run generateTile for each tile (passing all artworks in that tile)
 	for (const [tileKey, artworksInTile] of tiles.entries()) {
 		const [tileX, tileY] = tileKey.split(":").map(Number);
+		if (ignoreDirty && artworksInTile.every((artwork) => !artwork.dirty)) {
+			console.log(`Skipping tile (${tileX}, ${tileY}) as all artworks are clean`);
+			continue;
+		}
 		await generateTile(tileX!, tileY!, artworksInTile);
 	}
 
