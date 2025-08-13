@@ -54,7 +54,7 @@ app.get("/dracula.css", (req, res) => {
 });
 
 app.get("/bookmark.txt", async (req, res) => {
-	const enc = encodeURIComponent(await readFile(path.join(__dirname, "enable.js"), "utf-8"));
+	const enc = encodeURIComponent(await readFile(path.join(__dirname, "bookmark.js"), "utf-8"));
 	res.setHeader("Content-Type", "text/plain");
 	res.send("javascript:" + enc);
 });
@@ -552,7 +552,7 @@ app.get("/enable-old.js", (req, res) => {
 // });
 
 // Proxy all requests to wplace.live (by fetching the WEBPs and returning the response, leaving room to add more logic later)
-app.use(slowDown({
+app.use("/files", slowDown({
 	windowMs: 1000 * 5, // 5 seconds
 	delayAfter: 10, // Delay after 10 requests
 	delayMs: (hits) => hits * 100, // Delay 100ms for each request after the 10th
@@ -562,6 +562,7 @@ app.use(slowDown({
 	const query = req.query;
 	const blending = (query.blending || "over") as Blend;
 	const darken = query.darken === "true";
+	const update = !query.tag; // If there is no tag, render the update message
 	if (!VALID_BLENDING_MODES.includes(blending)) {
 		return res.status(400).send(`Invalid blending mode: ${blending}. Valid modes are: ${VALID_BLENDING_MODES.join(", ")}`);
 	}
@@ -627,14 +628,20 @@ app.use(slowDown({
 					}
 				}
 
-				// const updateOverlayImage = await readFile("update-overlay-transparent.png");
+				const updateOverlayImage = await readFile(path.join(__dirname, "update-overlay-transparent.png"));
 
 				// Composite overlay onto resized original
 				outputBuffer = await sharp(resizedOriginal)
 					.composite([{ input: overlayBuffer, blend: blending }])
-					// .composite([{ input: updateOverlayImage, blend: "over" }])
 					.toFormat("png")
 					.toBuffer();
+				if (update) {
+					console.log(`Applying update overlay for tile ${x}/${y}`);
+					outputBuffer = await sharp(outputBuffer)
+						.composite([{ input: updateOverlayImage, blend: "over" }])
+						.toFormat("png")
+						.toBuffer();
+				}
 			} else {
 				console.log(`No local overlay found for tile ${x}/${y}, returning original`);
 				outputBuffer = await sharp(webpBuffer)
