@@ -1,1 +1,0 @@
-black overlay tiles for bielefeld void (not part of placeDE)
