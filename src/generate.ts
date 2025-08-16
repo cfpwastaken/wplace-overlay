@@ -260,16 +260,16 @@ export async function generateTiles(redis: ReturnType<typeof createClient>, igno
 	const geo = new GeospatialConverter(1000);
 	const keys = await redis.keys("artwork:*");
 	const rawArtworks = await redis.json.mGet(keys, "$");
-	const artworks: Artwork[] = rawArtworks.map((item: any) => {
+	const artworks: (Artwork & { key: string })[] = rawArtworks.map((item: any, index: number) => {
 		// mGet returns an array of arrays (one per key), each containing the result or null
 		if (Array.isArray(item) && item.length > 0 && item[0] !== null) {
-			return item[0] as Artwork;
+			return { ...item[0], key: keys[index] } as (Artwork & { key: string });
 		}
 		return null;
-	}).filter((a) => a !== null) as Artwork[];
+	}).filter((a) => a !== null) as (Artwork & { key: string })[];
 
 	// Group artworks by tile, considering artwork dimensions
-	const tiles: Map<string, Artwork[]> = new Map();
+	const tiles: Map<string, (Artwork & { key: string })[]> = new Map();
 	for (const artwork of artworks) {
 		let { lat, lon } = artwork.position;
 		lat = +Number(lat).toFixed(7);
@@ -331,6 +331,10 @@ export async function generateTiles(redis: ReturnType<typeof createClient>, igno
 			continue;
 		}
 		await generateTile(tileX!, tileY!, artworksInTile);
+		for (const artwork of artworksInTile) {
+			artwork.dirty = false; // Reset dirty flag
+			await redis.json.set(artwork.key, "$", artwork);
+		}
 	}
 
 	// Clean up stale tiles that no longer have artworks
