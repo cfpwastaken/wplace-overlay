@@ -545,6 +545,7 @@ app.use("/symbols", (req, res, next) => {
 
 app.use("/tiles", (req, res, next) => {
 	res.setHeader("Cache-Control", "public, max-age=600, must-revalidate");
+	res.setHeader("Access-Control-Allow-Origin", "https://wplace.live");
 	next();
 }, express.static(path.join(__dirname, "..", "tiles")));
 
@@ -689,6 +690,7 @@ app.use("/files", slowDown({
 		cachedFinalTiles.set(req.originalUrl, outputBuffer);
 		
 		res.setHeader("Content-Type", "image/png");
+		res.setHeader("Access-Control-Allow-Origin", "https://wplace.live");
 		res.send(outputBuffer);
 		
 		// Detailed timing breakdown
