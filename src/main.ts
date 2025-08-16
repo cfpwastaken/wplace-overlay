@@ -18,6 +18,8 @@ import slowDown from "express-slow-down";
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "wplace";
+const JWT_ISSUER = process.env.JWT_ISSUER || "localhost";
+const version = process.env.OVERLAY_VERSION || "germany";
 
 if(JWT_SECRET === "wplace") {
 	console.warn("WARNING: Using default JWT_SECRET. This is insecure and should be changed in production!");
@@ -59,6 +61,21 @@ app.get("/bookmark.txt", async (req, res) => {
 	res.send("javascript:" + enc);
 });
 
+if (version === "vtuber") {
+    app.get("/extra/overlay.user.js", async (req, res) => {
+        res.setHeader("Content-Type", "application/javascript");
+        res.sendFile(path.join(__dirname, "overlay.js"));
+    });
+
+    app.get("/extra/form", async (req, res) => {
+        res.redirect("https://forms.gle/U8jZExVP7UfM9jqB9")
+    });
+
+    app.get("/extra/list", async (req, res) => {
+        res.redirect("https://docs.google.com/spreadsheets/d/1nsrhyaHpBsUPLIfagMM8VQMlTbAyzoYlhKFi2lYY_CU");
+    });
+}
+
 app.get("/mobile.mp4", (req, res) => {
 	res.sendFile(path.join(__dirname, "mobile.mp4"));
 });
@@ -70,7 +87,7 @@ const redis = await createClient({
 const auth = expressjwt({
 	algorithms: ["HS256"],
 	secret: JWT_SECRET,
-	issuer: "https://cfp.is-a.dev/wplace/"
+	issuer: JWT_ISSUER
 });
 
 app.get("/api/alliance", auth, async (req, res) => {
@@ -327,7 +344,7 @@ app.get("/api/verifyLogin", async (req, res) => {
 	const token = sign(payload, JWT_SECRET, {
 		algorithm: "HS256",
 		expiresIn: "1h",
-		issuer: "https://cfp.is-a.dev/wplace/"
+		issuer: JWT_ISSUER
 	});
 
 	res.json({
@@ -520,6 +537,12 @@ async function fileExists(filePath: string): Promise<boolean> {
 	}
 }
 
+app.use("/symbols", (req, res, next) => {
+	res.setHeader("Cache-Control", "public, max-age=6000");
+	res.setHeader("Access-Control-Allow-Origin", "https://wplace.live");
+	next();
+}, express.static("symbols"));
+
 app.use("/tiles", (req, res, next) => {
 	res.setHeader("Cache-Control", "public, max-age=600, must-revalidate");
 	next();
@@ -571,7 +594,8 @@ app.use("/files", slowDown({
 		return res.status(400).send(`Invalid blending mode: ${blending}. Valid modes are: ${VALID_BLENDING_MODES.join(", ")}`);
 	}
 	const originalUrlWithoutQuery = req.originalUrl.split('?')[0];
-	const url = `https://backend.wplace.live${originalUrlWithoutQuery}`;
+	let url = `https://backend.wplace.live${originalUrlWithoutQuery}`;
+    url = url.replace("_sym","")
 
 	try {
 		const fetchStart = Date.now();
