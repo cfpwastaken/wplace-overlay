@@ -42,11 +42,10 @@ const SUBPATH = "";
 // Worker for canvas operations
 const WORKER_CODE = `
 self.addEventListener("message", async (event) => {
-    const { id, originalBlob, overlayBlob, symbolBlob, width, height, darken, overlayMode } = event.data;
+    const { id, originalBlob, overlayBlob, width, height, darken, overlayMode } = event.data;
     const OVERLAY_MODES = {"over": "source-over", "symbol": "symbol", "difference": "difference", "out": "source-out", "fill": "source-over"}
     const originalBitmap = await createImageBitmap(originalBlob);
-    const overlayBitmap = await createImageBitmap(overlayBlob);
-    const symbolBitmap = await createImageBitmap(symbolBlob);
+    let overlayBitmap = await createImageBitmap(overlayBlob);;
 
     const canvas = new OffscreenCanvas(width, height);
     const ctx = canvas.getContext("2d");
@@ -55,12 +54,8 @@ self.addEventListener("message", async (event) => {
 
     ctx.drawImage(originalBitmap, 0, 0, width, height);
     ctx.globalCompositeOperation = OVERLAY_MODES[overlayMode] || "source-over";
-    if(overlayMode === "symbol") {
-        finalBitmap = symbolBitmap
-    } else {
-        finalBitmap = overlayBitmap
-    }
-    ctx.drawImage(finalBitmap, 0, 0, width, height);
+
+    ctx.drawImage(overlayBitmap, 0, 0, width, height);
     if(darken) {
         ctx.globalCompositeOperation = "destination-over";
         ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
@@ -128,16 +123,17 @@ window.fetch = unsafeWindow.fetch = new Proxy(fetch, { apply: async (target, thi
             if(overlayMode !== "over" && overlayMode !== "symbol") {
                 tileY = tileY.replace(".png", "_orig.png");
             }
-            const overlayUrl = `https://${HOST}${SUBPATH}/tiles/${tileX}/${tileY}`;
-            const symbolUrl = `https://${HOST}${SUBPATH}/tiles/${tileX}/${tileY.replace(".png", "_sym.png")}`;
-            const [originalRes, overlayRes, symbolRes] = await Promise.all([
+
+            let overlayUrl = overlayMode === "symbol" ?
+                `https://${HOST}${SUBPATH}/tiles/${tileX}/${tileY.replace(".png", "_sym.png")}` : `https://${HOST}${SUBPATH}/tiles/${tileX}/${tileY}`;
+
+            const [originalRes, overlayRes] = await Promise.all([
                 originalFetch(url),
-                originalFetch(overlayUrl),
-                originalFetch(symbolUrl)
+                originalFetch(overlayUrl)
             ])
 
-            if(overlayRes.status !== 200 || symbolRes.status !== 200) {
-                if(overlayRes.status === 404 || symbolRes.status === 404) {
+            if(overlayRes.status !== 200) {
+                if(overlayRes.status === 404) {
                     return originalRes;
                 }
                 console.error(`Overlay fetch failed with status ${overlayRes.status}, returning fallback`);
@@ -166,10 +162,9 @@ window.fetch = unsafeWindow.fetch = new Proxy(fetch, { apply: async (target, thi
                 });
             }
 
-            const [originalBlob, overlayBlob, symbolBlob] = await Promise.all([
+            const [originalBlob, overlayBlob] = await Promise.all([
                 originalRes.blob(),
-                overlayRes.blob(),
-                symbolRes.blob()
+                overlayRes.blob()
             ]);
 
             let width,height = 0;
@@ -188,7 +183,6 @@ window.fetch = unsafeWindow.fetch = new Proxy(fetch, { apply: async (target, thi
                 id,
                 originalBlob,
                 overlayBlob,
-                symbolBlob,
                 width,
                 height,
                 darken,
