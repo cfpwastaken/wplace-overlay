@@ -134,35 +134,39 @@ export async function generateTile(
 
 	const geo = new GeospatialConverter(1000);
 	for (const artwork of artworks) {
-		const lat = +Number(artwork.position.lat).toFixed(7);
-		const lon = +Number(artwork.position.lon).toFixed(7);
-		const pos = geo.latLonToTileAndPixel(lat, lon, 11);
-		const originalPixelX = pos.pixel[0]!;
-		const originalPixelY = pos.pixel[1]!;
-		const originalTileX = pos.tile[0]!;
-		const originalTileY = pos.tile[1]!;
-
-		const data = await readFile(`./artworks/${artwork.data}`);
-		const img = PNG.sync.read(data);
-
-		// Calculate the portion of the artwork that should be rendered on this specific tile
-		const renderInfo = calculateRenderInfo(
-			originalTileX,
-			originalTileY,
-			originalPixelX,
-			originalPixelY,
-			img.width,
-			img.height,
-			tileX,
-			tileY,
-			geo.tileSize,
-		);
-
-		if (renderInfo) {
-			await renderImagePortionOnImage(png, img, renderInfo);
-			console.log(
-				`Rendered artwork ${artwork.slug} by ${artwork.author} portion at (${renderInfo.destX}, ${renderInfo.destY}) size (${renderInfo.width}x${renderInfo.height})`,
+		try {
+			const lat = +Number(artwork.position.lat).toFixed(7);
+			const lon = +Number(artwork.position.lon).toFixed(7);
+			const pos = geo.latLonToTileAndPixel(lat, lon, 11);
+			const originalPixelX = pos.pixel[0]!;
+			const originalPixelY = pos.pixel[1]!;
+			const originalTileX = pos.tile[0]!;
+			const originalTileY = pos.tile[1]!;
+	
+			const data = await readFile(`./artworks/${artwork.data}`);
+			const img = PNG.sync.read(data);
+	
+			// Calculate the portion of the artwork that should be rendered on this specific tile
+			const renderInfo = calculateRenderInfo(
+				originalTileX,
+				originalTileY,
+				originalPixelX,
+				originalPixelY,
+				img.width,
+				img.height,
+				tileX,
+				tileY,
+				geo.tileSize,
 			);
+	
+			if (renderInfo) {
+				await renderImagePortionOnImage(png, img, renderInfo);
+				console.log(
+					`Rendered artwork ${artwork.slug} by ${artwork.author} portion at (${renderInfo.destX}, ${renderInfo.destY}) size (${renderInfo.width}x${renderInfo.height})`,
+				);
+			}
+		} catch(e) {
+			console.log("Failed to render " + artwork.slug, e);
 		}
 	}
 
