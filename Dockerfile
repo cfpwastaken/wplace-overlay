@@ -30,7 +30,7 @@ COPY --from=install /temp/prod/node_modules node_modules
 COPY --from=prerelease /usr/src/app/src src/
 COPY --from=prerelease /usr/src/app/package.json .
 
-RUN apk add python3 py3-pillow
+RUN apk add python3 py3-pillow py3-numpy
 
 # run the app
 USER bun
