@@ -9,7 +9,7 @@ import { v4 as uuid } from "uuid";
 import { sign } from "jsonwebtoken";
 import { expressjwt } from "express-jwt";
 import { readFile, access } from "fs/promises";
-import { constants } from "fs";
+import { constants, existsSync } from "fs";
 import rateLimit from "express-rate-limit";
 import { GeospatialConverter } from "./wplace";
 import { PNG } from "pngjs";
@@ -19,7 +19,6 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "wplace";
 const JWT_ISSUER = process.env.JWT_ISSUER || "localhost";
-const version = process.env.OVERLAY_VERSION || "germany";
 
 if(JWT_SECRET === "wplace") {
 	console.warn("WARNING: Using default JWT_SECRET. This is insecure and should be changed in production!");
@@ -61,19 +60,8 @@ app.get("/bookmark.txt", async (req, res) => {
 	res.send("javascript:" + enc);
 });
 
-if (version === "vtuber") {
-    app.get("/extra/overlay.user.js", async (req, res) => {
-        res.setHeader("Content-Type", "application/javascript");
-        res.sendFile(path.join(__dirname, "overlay.js"));
-    });
-
-    app.get("/extra/form", async (req, res) => {
-        res.redirect("https://forms.gle/U8jZExVP7UfM9jqB9")
-    });
-
-    app.get("/extra/list", async (req, res) => {
-        res.redirect("https://docs.google.com/spreadsheets/d/1nsrhyaHpBsUPLIfagMM8VQMlTbAyzoYlhKFi2lYY_CU");
-    });
+if(existsSync(path.join(__dirname, "extra"))) {
+	app.use("/extra", express.static(path.join(__dirname, "extra")));
 }
 
 app.get("/mobile.mp4", (req, res) => {
