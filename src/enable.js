@@ -221,7 +221,7 @@ function patchUI() {
 	});
 
 	let darkenMode = document.createElement("button");
-	darkenMode.textContent = "Darken: " + (darken ? "An" : "off");
+    darkenMode.textContent = `Darken: ${darken ? "On" : "Off"}`;
 	darkenMode.style.backgroundColor = "#0e0e0e7f";
 	darkenMode.style.color = "white";
 	darkenMode.style.border = "solid";
