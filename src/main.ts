@@ -536,7 +536,7 @@ app.use("/symbols", (req, res, next) => {
 	}
 
 	next();
-}, express.static("symbols"));
+}, express.static(path.join(__dirname, "symbols")));
 
 app.use("/tiles", (req, res, next) => {
 	res.setHeader("Cache-Control", "public, max-age=600, must-revalidate");
