@@ -12,9 +12,10 @@
 // @grant        unsafeWindow
 // ==/UserScript==
 
-let overlayMode = GM_getValue("OVERLAY_MODE", "over");
+const IS_TAMPERMONKEY = typeof GM_getValue === "function" && typeof GM_setValue === "function" && typeof unsafeWindow === "object";
+let overlayMode = IS_TAMPERMONKEY ? GM_getValue("OVERLAY_MODE", "over") : "over";
 const OVERLAY_MODES = ["off", "over", "symbol", "difference", "out", "fill"];
-let darken = GM_getValue("DARKEN", false);
+let darken = IS_TAMPERMONKEY ? GM_getValue("DARKEN", false) : false;
 
 // =============================================================
 // Want to add your own image to the overlay?
@@ -214,7 +215,7 @@ function patchUI() {
 
 	blendButton.addEventListener("click", () => {
 		overlayMode = OVERLAY_MODES[(OVERLAY_MODES.indexOf(overlayMode) + 1) % OVERLAY_MODES.length];
-		GM_setValue("OVERLAY_MODE", overlayMode);
+		if (IS_TAMPERMONKEY) GM_setValue("OVERLAY_MODE", overlayMode);
 		blendButton.textContent = `Overlay: ${overlayMode.charAt(0).toUpperCase() + overlayMode.slice(1)}`;
 		console.log("Overlay mode set to:", overlayMode);
 		reloadText.style.display = "";
@@ -233,7 +234,7 @@ function patchUI() {
 
 	darkenMode.addEventListener("click", () => {
 		darken = !darken;
-		GM_setValue("DARKEN", darken);
+		if(IS_TAMPERMONKEY) GM_setValue("DARKEN", darken);
 		darkenMode.textContent = `Darken: ${darken ? "On" : "Off"}`;
 		console.log("Darken mode set to:", darken);
 		reloadText.style.display = "";
