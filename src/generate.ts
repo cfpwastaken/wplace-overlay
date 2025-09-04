@@ -134,35 +134,39 @@ export async function generateTile(
 
 	const geo = new GeospatialConverter(1000);
 	for (const artwork of artworks) {
-		const lat = +Number(artwork.position.lat).toFixed(7);
-		const lon = +Number(artwork.position.lon).toFixed(7);
-		const pos = geo.latLonToTileAndPixel(lat, lon, 11);
-		const originalPixelX = pos.pixel[0]!;
-		const originalPixelY = pos.pixel[1]!;
-		const originalTileX = pos.tile[0]!;
-		const originalTileY = pos.tile[1]!;
-
-		const data = await readFile(`./artworks/${artwork.data}`);
-		const img = PNG.sync.read(data);
-
-		// Calculate the portion of the artwork that should be rendered on this specific tile
-		const renderInfo = calculateRenderInfo(
-			originalTileX,
-			originalTileY,
-			originalPixelX,
-			originalPixelY,
-			img.width,
-			img.height,
-			tileX,
-			tileY,
-			geo.tileSize,
-		);
-
-		if (renderInfo) {
-			await renderImagePortionOnImage(png, img, renderInfo);
-			console.log(
-				`Rendered artwork ${artwork.slug} by ${artwork.author} portion at (${renderInfo.destX}, ${renderInfo.destY}) size (${renderInfo.width}x${renderInfo.height})`,
+		try {
+			const lat = +Number(artwork.position.lat).toFixed(7);
+			const lon = +Number(artwork.position.lon).toFixed(7);
+			const pos = geo.latLonToTileAndPixel(lat, lon, 11);
+			const originalPixelX = pos.pixel[0]!;
+			const originalPixelY = pos.pixel[1]!;
+			const originalTileX = pos.tile[0]!;
+			const originalTileY = pos.tile[1]!;
+	
+			const data = await readFile(`./artworks/${artwork.data}`);
+			const img = PNG.sync.read(data);
+	
+			// Calculate the portion of the artwork that should be rendered on this specific tile
+			const renderInfo = calculateRenderInfo(
+				originalTileX,
+				originalTileY,
+				originalPixelX,
+				originalPixelY,
+				img.width,
+				img.height,
+				tileX,
+				tileY,
+				geo.tileSize,
 			);
+	
+			if (renderInfo) {
+				await renderImagePortionOnImage(png, img, renderInfo);
+				console.log(
+					`Rendered artwork ${artwork.slug} by ${artwork.author} portion at (${renderInfo.destX}, ${renderInfo.destY}) size (${renderInfo.width}x${renderInfo.height})`,
+				);
+			}
+		} catch(e) {
+			console.log("Failed to render " + artwork.slug, e);
 		}
 	}
 
@@ -260,16 +264,16 @@ export async function generateTiles(redis: ReturnType<typeof createClient>, igno
 	const geo = new GeospatialConverter(1000);
 	const keys = await redis.keys("artwork:*");
 	const rawArtworks = await redis.json.mGet(keys, "$");
-	const artworks: Artwork[] = rawArtworks.map((item: any) => {
+	const artworks: (Artwork & { key: string })[] = rawArtworks.map((item: any, index: number) => {
 		// mGet returns an array of arrays (one per key), each containing the result or null
 		if (Array.isArray(item) && item.length > 0 && item[0] !== null) {
-			return item[0] as Artwork;
+			return { ...item[0], key: keys[index] } as (Artwork & { key: string });
 		}
 		return null;
-	}).filter((a) => a !== null) as Artwork[];
+	}).filter((a) => a !== null) as (Artwork & { key: string })[];
 
 	// Group artworks by tile, considering artwork dimensions
-	const tiles: Map<string, Artwork[]> = new Map();
+	const tiles: Map<string, (Artwork & { key: string })[]> = new Map();
 	for (const artwork of artworks) {
 		let { lat, lon } = artwork.position;
 		lat = +Number(lat).toFixed(7);
@@ -331,6 +335,10 @@ export async function generateTiles(redis: ReturnType<typeof createClient>, igno
 			continue;
 		}
 		await generateTile(tileX!, tileY!, artworksInTile);
+		for (const artwork of artworksInTile) {
+			artwork.dirty = false; // Reset dirty flag
+			await redis.json.set(artwork.key, "$", artwork);
+		}
 	}
 
 	// Clean up stale tiles that no longer have artworks

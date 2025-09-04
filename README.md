@@ -1,15 +1,15 @@
-# wplace-proxy
+# Wplace Overlay
 
-To install dependencies:
+Server-based overlay for [Wplace](https://wplace.live).
 
-```bash
-bun install
-```
+## How do I use this overlay?
 
-To run:
+All instructions are on the [website](https://cfp.is-a.dev/wplace/).
 
-```bash
-bun run 
-```
+## How do I add my own image to the overlay?
 
-This project was created using `bun init` in bun v1.2.10. [Bun](https://bun.sh) is a fast all-in-one JavaScript runtime.
+You can add your own image by sending us your image and position URL in our [discord server](https://discord.gg/XWApKJ6a5Z).
+
+## How do I modify this script for my own use?
+
+You don't. This is a server-based overlay and it is licensed as "All rights reserved" at the moment, so you cannot modify or redistribute it without permission.

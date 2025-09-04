@@ -479,7 +479,7 @@ app.post("/api/generate", rateLimit({
 		return res.status(403).send({ success: false, message: "Forbidden: Only admins can trigger tile generation. Tiles generate automatically every 5 minutes." });
 	}
 	res.json({ success: true, message: "Tiles generation started." });
-	await generateTiles(redis);
+	await generateTiles(redis, true);
 	cachedMapTiles.clear();
 	cachedFinalTiles.clear();
 });
