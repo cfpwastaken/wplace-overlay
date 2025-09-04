@@ -528,12 +528,26 @@ async function fileExists(filePath: string): Promise<boolean> {
 app.use("/symbols", (req, res, next) => {
 	res.setHeader("Cache-Control", "public, max-age=6000");
 	res.setHeader("Access-Control-Allow-Origin", "https://wplace.live");
+	res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+	res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+	
+	if (req.method === "OPTIONS") {
+		return res.sendStatus(204); // No Content
+	}
+
 	next();
 }, express.static("symbols"));
 
 app.use("/tiles", (req, res, next) => {
 	res.setHeader("Cache-Control", "public, max-age=600, must-revalidate");
 	res.setHeader("Access-Control-Allow-Origin", "https://wplace.live");
+	res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+	res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+
+	if (req.method === "OPTIONS") {
+		return res.sendStatus(204); // No Content
+	}
+
 	next();
 }, express.static(path.join(__dirname, "..", "tiles")));
 
