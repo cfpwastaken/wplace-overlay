@@ -564,6 +564,15 @@ let totalRequestTime = 0;
 
 app.get("/enable.js", (req, res) => {
 	res.setHeader("Content-Type", "application/javascript");
+	res.setHeader("Cache-Control", "public, max-age=6000");
+	res.setHeader("Access-Control-Allow-Origin", "https://wplace.live");
+	res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+	res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+	
+	if (req.method === "OPTIONS") {
+		return res.sendStatus(204); // No Content
+	}
+
 	res.sendFile(path.join(__dirname, "enable.js"));
 })
 
