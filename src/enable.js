@@ -87,6 +87,10 @@ const fallbackBlob = new Blob([fallbackSVG], { type: "image/svg+xml" });
 
 const originalFetch = window.fetch;
 
+if(!IS_TAMPERMONKEY) {
+	unsafeWindow = window;
+}
+
 window.fetch = unsafeWindow.fetch = new Proxy(fetch, {
 	apply: async (target, thisArg, argList) => {
 		if (!argList[0]) {
