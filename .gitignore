@@ -1,5 +1,6 @@
 tiles
 !tiles/border.py
+!tiles/symbol.py
 artworks
 
 # dependencies (bun install)

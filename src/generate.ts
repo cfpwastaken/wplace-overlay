@@ -183,6 +183,13 @@ export async function generateTile(
 		cwd: "tiles",
 	});
 
+	// If at least one artwork has the symbol flag, generate the symbol overlay
+	if (artworks.some((art) => art.symbol)) {
+		await runCommand("python3", ["symbol.py", tileX + "/" + tileY], {
+			cwd: "tiles",
+		});
+	}
+
 	const end = Date.now();
 	console.log(`Tile (${tileX}, ${tileY}) generated in ${end - start} ms`);
 }
@@ -258,6 +265,7 @@ export type Artwork = {
 	priority?: number; // Optional priority field
 	protected?: boolean; // Optional protected field
 	dirty?: boolean; // Optional dirty field to indicate if the artwork needs reprocessing
+	symbol?: boolean;
 };
 
 export async function generateTiles(redis: ReturnType<typeof createClient>, ignoreDirty = false) {
