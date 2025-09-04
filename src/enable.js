@@ -267,7 +267,7 @@ function patchUI() {
 			let b = paintMenu.querySelector('div[data-tip="' + color + '"] > button');
 			if (b) {
 				let colorImg = document.createElement("img");
-				colorImg.src = `https://${HOST}${SUBPATH}/` + color + ".png";
+				colorImg.src = `https://${HOST}${SUBPATH}/symbols/` + color + ".png";
 				colorImg.style.borderRadius = "4px";
 				if (color.startsWith("Light") || color === "White") {
 					colorImg.style.borderColor = "black";
