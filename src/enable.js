@@ -21,8 +21,8 @@ let darken = GM_getValue("DARKEN", false);
 // We can help you with that on our discord server.
 // See our web page on https://cfp.is-a.dev/wplace/ for details.
 // =============================================================
-const HOST = "localhost:3000";
-const SUBPATH = "";
+const HOST = "cfp.is-a.dev";
+const SUBPATH = "/wplace";
 
 // Worker for canvas operations
 const WORKER_CODE = `
