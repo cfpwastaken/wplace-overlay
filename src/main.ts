@@ -9,7 +9,7 @@ import { v4 as uuid } from "uuid";
 import { sign } from "jsonwebtoken";
 import { expressjwt } from "express-jwt";
 import { readFile, access } from "fs/promises";
-import { constants } from "fs";
+import { constants, existsSync } from "fs";
 import rateLimit from "express-rate-limit";
 import { GeospatialConverter } from "./wplace";
 import { PNG } from "pngjs";
@@ -18,6 +18,7 @@ import slowDown from "express-slow-down";
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "wplace";
+const JWT_ISSUER = process.env.JWT_ISSUER || "localhost";
 
 if(JWT_SECRET === "wplace") {
 	console.warn("WARNING: Using default JWT_SECRET. This is insecure and should be changed in production!");
@@ -59,6 +60,10 @@ app.get("/bookmark.txt", async (req, res) => {
 	res.send("javascript:" + enc);
 });
 
+if(existsSync(path.join(__dirname, "extra"))) {
+	app.use("/extra", express.static(path.join(__dirname, "extra")));
+}
+
 app.get("/mobile.mp4", (req, res) => {
 	res.sendFile(path.join(__dirname, "mobile.mp4"));
 });
@@ -70,7 +75,7 @@ const redis = await createClient({
 const auth = expressjwt({
 	algorithms: ["HS256"],
 	secret: JWT_SECRET,
-	issuer: "https://cfp.is-a.dev/wplace/"
+	issuer: JWT_ISSUER
 });
 
 app.get("/api/alliance", auth, async (req, res) => {
@@ -327,7 +332,7 @@ app.get("/api/verifyLogin", async (req, res) => {
 	const token = sign(payload, JWT_SECRET, {
 		algorithm: "HS256",
 		expiresIn: "1h",
-		issuer: "https://cfp.is-a.dev/wplace/"
+		issuer: JWT_ISSUER
 	});
 
 	res.json({
@@ -520,8 +525,15 @@ async function fileExists(filePath: string): Promise<boolean> {
 	}
 }
 
+app.use("/symbols", (req, res, next) => {
+	res.setHeader("Cache-Control", "public, max-age=6000");
+	res.setHeader("Access-Control-Allow-Origin", "https://wplace.live");
+	next();
+}, express.static("symbols"));
+
 app.use("/tiles", (req, res, next) => {
 	res.setHeader("Cache-Control", "public, max-age=600, must-revalidate");
+	res.setHeader("Access-Control-Allow-Origin", "https://wplace.live");
 	next();
 }, express.static(path.join(__dirname, "..", "tiles")));
 
@@ -571,7 +583,8 @@ app.use("/files", slowDown({
 		return res.status(400).send(`Invalid blending mode: ${blending}. Valid modes are: ${VALID_BLENDING_MODES.join(", ")}`);
 	}
 	const originalUrlWithoutQuery = req.originalUrl.split('?')[0];
-	const url = `https://backend.wplace.live${originalUrlWithoutQuery}`;
+	let url = `https://backend.wplace.live${originalUrlWithoutQuery}`;
+    url = url.replace("_sym","")
 
 	try {
 		const fetchStart = Date.now();
@@ -665,6 +678,7 @@ app.use("/files", slowDown({
 		cachedFinalTiles.set(req.originalUrl, outputBuffer);
 		
 		res.setHeader("Content-Type", "image/png");
+		res.setHeader("Access-Control-Allow-Origin", "https://wplace.live");
 		res.send(outputBuffer);
 		
 		// Detailed timing breakdown
