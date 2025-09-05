@@ -29,9 +29,9 @@ const SUBPATH = "/wplace";
 const WORKER_CODE = `
 self.addEventListener("message", async (event) => {
     const { id, originalBlob, overlayBlob, width, height, darken, overlayMode } = event.data;
-    const OVERLAY_MODES = {"over": "source-over", "symbol": "symbol", "difference": "difference", "out": "source-out", "fill": "source-over"}
+    const OVERLAY_MODES = {"over": "source-over", "symbol": "source-over", "difference": "difference", "out": "source-out", "fill": "source-over"}
     const originalBitmap = await createImageBitmap(originalBlob);
-    let overlayBitmap = await createImageBitmap(overlayBlob);;
+    let overlayBitmap = await createImageBitmap(overlayBlob);
 
     const canvas = new OffscreenCanvas(width, height);
     const ctx = canvas.getContext("2d");
@@ -119,7 +119,7 @@ window.fetch = unsafeWindow.fetch = new Proxy(fetch, {
 					`https://${HOST}${SUBPATH}/tiles/${tileX}/${tileY.replace(".png", "_sym.png")}` : `https://${HOST}${SUBPATH}/tiles/${tileX}/${tileY}`;
 
 				const [originalRes, overlayRes] = await Promise.all([
-					originalFetch(url),
+					originalFetch(urlString),
 					originalFetch(overlayUrl)
 				])
 
