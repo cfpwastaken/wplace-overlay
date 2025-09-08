@@ -28,29 +28,30 @@ const SUBPATH = "/wplace";
 // Worker for canvas operations
 const WORKER_CODE = `
 self.addEventListener("message", async (event) => {
-    const { id, originalBlob, overlayBlob, width, height, darken, overlayMode } = event.data;
-    const OVERLAY_MODES = {"over": "source-over", "symbol": "source-over", "difference": "difference", "out": "source-out", "fill": "source-over"}
-    const originalBitmap = await createImageBitmap(originalBlob);
-    let overlayBitmap = await createImageBitmap(overlayBlob);
+	const { id, originalBlob, overlayBlob, userOverlayBlob, width, height, darken, overlayMode } = event.data;
+	const OVERLAY_MODES = {"over": "source-over", "symbol": "source-over", "difference": "difference", "out": "source-out", "fill": "source-over"}
+	const originalBitmap = await createImageBitmap(originalBlob);
+	const overlayBitmap = await createImageBitmap(overlayBlob);
+	const userOverlayBitmap = userOverlayBlob ? await createImageBitmap(userOverlayBlob) : null;
 
-    const canvas = new OffscreenCanvas(width, height);
-    const ctx = canvas.getContext("2d");
+	const canvas = new OffscreenCanvas(width, height);
+	const ctx = canvas.getContext("2d");
 
-    ctx.imageSmoothingEnabled = false;
+	ctx.imageSmoothingEnabled = false;
+	
+	ctx.drawImage(originalBitmap, 0, 0, width, height);
+	ctx.globalCompositeOperation = OVERLAY_MODES[overlayMode] || "source-over";
+	ctx.drawImage(overlayBitmap, 0, 0, width, height);
+	if(userOverlayBitmap) ctx.drawImage(userOverlayBitmap, 0, 0, width, height);
+	if(darken) {
+		ctx.globalCompositeOperation = "destination-over";
+		ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
+		ctx.fillRect(0, 0, width, height);
+	}
+	ctx.globalCompositeOperation = "source-over";
 
-    ctx.drawImage(originalBitmap, 0, 0, width, height);
-    ctx.globalCompositeOperation = OVERLAY_MODES[overlayMode] || "source-over";
-
-    ctx.drawImage(overlayBitmap, 0, 0, width, height);
-    if(darken) {
-        ctx.globalCompositeOperation = "destination-over";
-        ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-        ctx.fillRect(0, 0, width, height);
-    }
-    ctx.globalCompositeOperation = "source-over";
-
-    const resultBlob = await canvas.convertToBlob();
-    self.postMessage({ id, resultBlob });
+	const resultBlob = await canvas.convertToBlob();
+	self.postMessage({ id, resultBlob });
 })
 `
 
@@ -93,7 +94,7 @@ if(!IS_TAMPERMONKEY) {
 
 window.fetch = unsafeWindow.fetch = new Proxy(fetch, {
 	apply: async (target, thisArg, argList) => {
-		if (!argList[0]) {
+		if(!argList[0]) {
 			throw new Error("No URL provided to fetch");
 		}
 
@@ -108,23 +109,26 @@ window.fetch = unsafeWindow.fetch = new Proxy(fetch, {
 
 		if (url.hostname === "backend.wplace.live" && url.pathname.startsWith("/files/")) {
 			console.log("Intercepted fetch request to wplace.live");
-			if (overlayMode !== "off") {
+			if(overlayMode !== "off") {
 				const tileX = url.pathname.split("/")[4];
 				let tileY = url.pathname.split("/")[5];
 				if (overlayMode !== "over" && overlayMode !== "symbol") {
 					tileY = tileY.replace(".png", "_orig.png");
 				}
 
+				const userID = getID();
 				let overlayUrl = overlayMode === "symbol" ?
 					`https://${HOST}${SUBPATH}/tiles/${tileX}/${tileY.replace(".png", "_sym.png")}` : `https://${HOST}${SUBPATH}/tiles/${tileX}/${tileY}`;
+				const userOverlayUrl = `https://${HOST}${SUBPATH}/tiles/${userID}/${tileX}/${tileY}`;
 
-				const [originalRes, overlayRes] = await Promise.all([
-					originalFetch(urlString),
-					originalFetch(overlayUrl)
-				])
+				const [originalRes, overlayRes, userOverlayRes] = await Promise.all([
+					originalFetch(url),
+					originalFetch(overlayUrl),
+					originalFetch(userOverlayUrl)
+				]);
 
-				if (overlayRes.status !== 200) {
-					if (overlayRes.status === 404) {
+				if(overlayRes.status !== 200 && userOverlayRes.status !== 200) {
+					if(overlayRes.status === 404 && userOverlayRes.status === 404) {
 						return originalRes;
 					}
 					console.error(`Overlay fetch failed with status ${overlayRes.status}, returning fallback`);
@@ -137,11 +141,10 @@ window.fetch = unsafeWindow.fetch = new Proxy(fetch, {
 						}
 					});
 				}
-				if (originalRes.status !== 200) {
-					if (originalRes.status === 404) {
-						return overlayRes;
+				if(originalRes.status !== 200) {
+					if(originalRes.status === 404) {
+						return overlayRes.status === 200 ? overlayRes : userOverlayRes;
 					}
-					// throw new Error(`Original fetch failed with status ${originalRes.status}`);
 					console.error(`Original fetch failed with status ${originalRes.status}, returning fallback`);
 					return new Response(fallbackBlob, {
 						status: 200,
@@ -155,8 +158,12 @@ window.fetch = unsafeWindow.fetch = new Proxy(fetch, {
 
 				const [originalBlob, overlayBlob] = await Promise.all([
 					originalRes.blob(),
-					overlayRes.blob()
+					overlayRes.status === 200 ? overlayRes.blob() : fallbackBlob
 				]);
+				let userOverlayBlob = null;
+				if(userOverlayRes.status === 200) {
+					userOverlayBlob = await userOverlayRes.blob();
+				}
 
 				let width, height = 0;
 
@@ -174,6 +181,7 @@ window.fetch = unsafeWindow.fetch = new Proxy(fetch, {
 					id,
 					originalBlob,
 					overlayBlob,
+					userOverlayBlob,
 					width,
 					height,
 					darken,
@@ -197,6 +205,22 @@ window.fetch = unsafeWindow.fetch = new Proxy(fetch, {
 		return target.apply(thisArg, argList);
 	}
 });
+
+function getID() {
+	const element = document.querySelector(".text-purple-500");
+	if(!element) {
+		return -1;
+	}
+	const idText = element.textContent.replace("#", "").trim();
+	if(!idText) {
+		return -1;
+	}
+	const id = parseInt(idText, 10);
+	if(isNaN(id)) {
+		return -1;
+	}
+	return id;
+}
 
 let reloadText = document.createElement("span");
 const symbolList = ["Black", "Dark Gray", "Gray", "Medium Gray", "Light Gray", "White", "Deep Red", "Dark Red", "Red", "Light Red", "Dark Orange", "Orange", "Gold", "Yellow", "Light Yellow", "Dark Goldenrod", "Goldenrod", "Light Goldenrod", "Dark Olive", "Olive", "Light Olive", "Dark Green", "Green", "Light Green", "Dark Teal", "Teal", "Light Teal", "Dark Cyan", "Cyan", "Light Cyan", "Dark Blue", "Blue", "Light Blue", "Dark Indigo", "Indigo", "Light Indigo", "Dark Slate Blue", "Slate Blue", "Light Slate Blue", "Dark Purple", "Purple", "Light Purple", "Dark Pink", "Pink", "Light Pink", "Dark Peach", "Peach", "Light Peach", "Dark Brown", "Brown", "Light Brown", "Dark Tan", "Tan", "Light Tan", "Dark Beige", "Beige", "Light Beige", "Dark Stone", "Stone", "Light Stone", "Dark Slate", "Slate", "Light Slate"];

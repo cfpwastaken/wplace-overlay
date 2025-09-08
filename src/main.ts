@@ -83,25 +83,57 @@ app.get("/api/alliance", auth, async (req, res) => {
 	if(!req.auth.sub) {
 		return res.status(401).send("Unauthorized: No user ID found in token.");
 	}
-	// @ts-expect-error
-	const alliance = await getAllianceForUser(req.auth.sub);
-	if(!alliance) {
-		return res.status(403).send("Forbidden: You are not an admin of any alliance.");
+	if(!req.query.alliance) {
+		return res.status(400).send("Bad Request: Alliance parameter is required.");
 	}
-	res.json(alliance);
+	let allianceId = req.query.alliance as string;
+	if(isNaN(parseInt(allianceId))) {
+		// @ts-expect-error
+		const alliance = await getAllianceForUser(req.auth.sub);
+		if(!alliance) {
+			return res.status(403).send("Forbidden: You are not an admin of any alliance.");
+		}
+		if(alliance.slug !== req.body.alliance) {
+			return res.status(403).send("Forbidden: You are not allowed to access this alliance.");
+		}
+		res.json(alliance);
+	} else {
+		// @ts-expect-error
+		if(allianceId !== req.auth.sub.toString()) {
+			return res.status(403).send("Forbidden: You are not allowed to access this alliance.");
+		}
+		res.json({
+			// @ts-expect-error
+			name: "Local (" + req.auth.preferred_username + ")",
+		})
+	}
 })
 
-app.get("/api/artworks", auth, async (req, res) => {
+app.get("/api/artworks/:alliance", auth, async (req, res) => {
 	// @ts-expect-error
 	if(!req.auth.sub) {
 		return res.status(401).send("Unauthorized: No user ID found in token.");
 	}
-	// @ts-expect-error
-	const alliance = await getAllianceForUser(req.auth.sub);
-	if(!alliance) {
-		return res.status(403).send("Forbidden: You are not an admin of any alliance.");
+	if(!req.params.alliance) {
+		return res.status(400).send("Bad Request: Alliance parameter is required.");
 	}
-	const keys = await redis.keys(`artwork:${alliance.slug}:*`);
+	let allianceId = req.params.alliance;
+	if(isNaN(parseInt(allianceId))) {
+		// @ts-expect-error
+		const alliance = await getAllianceForUser(req.auth.sub);
+		if(!alliance) {
+			return res.status(403).send("Forbidden: You are not an admin of any alliance.");
+		}
+		if(alliance.slug !== req.body.alliance) {
+			return res.status(403).send("Forbidden: You are not allowed to access this alliance.");
+		}
+	} else {
+		// @ts-expect-error
+		if(allianceId !== req.auth.sub.toString()) {
+			return res.status(403).send("Forbidden: You are not allowed to access this alliance.");
+		}
+	}
+	const keys = await redis.keys(`artwork:${allianceId}:*`);
 	const rawArtworks = await redis.json.mGet(keys, "$");
 	const artworks: Artwork[] = rawArtworks.map((item: any) => {
 		// mGet returns an array of arrays (one per key), each containing the result or null
@@ -138,7 +170,7 @@ async function getAllianceForUser(userId: number) {
 async function getUserRole(userId: number): Promise<"admin" | "helper" | null> {
 	const alliance = await getAllianceForUser(userId);
 	if (!alliance) {
-		return null;
+		return "admin";
 	}
 	if (alliance.admins.includes(userId)) {
 		return "admin";
@@ -149,12 +181,27 @@ async function getUserRole(userId: number): Promise<"admin" | "helper" | null> {
 	return null;
 }
 
+app.get("/api/alliances", auth, async (req, res) => {
+	// @ts-expect-error
+	if(!req.auth.sub) {
+		return res.status(401).send("Unauthorized: No user ID found in token.");
+	}
+	// @ts-expect-error
+	const alliance = await getAllianceForUser(req.auth.sub);
+
+	res.json([
+		// @ts-expect-error
+		req.auth.sub,
+		alliance?.slug
+	].filter(i => i !== undefined && i !== null));
+})
+
 app.post("/api/upload", auth, async (req, res) => {
 	if(!req.files || Object.keys(req.files).length === 0) {
 		return res.status(400).send("No files were uploaded.");
 	}
-	if(!req.body.slug || !req.body.posurl) {
-		return res.status(400).send("Missing required fields: slug and posurl.");
+	if(!req.body.slug || !req.body.posurl || !req.body.alliance) {
+		return res.status(400).send("Missing required fields: slug, posurl and alliance.");
 	}
 	if(!req.files.file) {
 		return res.status(400).send("No file uploaded.");
@@ -163,11 +210,16 @@ app.post("/api/upload", auth, async (req, res) => {
 	if(!req.auth.sub) {
 		return res.status(401).send("Unauthorized: No user ID found in token.");
 	}
-	// @ts-expect-error
-	const alliance = await getAllianceForUser(req.auth.sub);
-	if(!alliance) {
-		return res.status(403).send("Forbidden: You are not an admin of any alliance.");
+
+	let allianceId = req.body.alliance;
+	if(isNaN(allianceId)) {
+		// @ts-expect-error
+		const alliance = await getAllianceForUser(req.auth.sub);
+		if(alliance?.slug !== req.body.alliance) {
+			return res.status(403).send("Forbidden: You are not allowed to access this alliance.");
+		}
 	}
+
 	const posUrl = new URL(req.body.posurl);
 	const lat = parseFloat(posUrl.searchParams.get("lat") || "0");
 	const lon = parseFloat(posUrl.searchParams.get("lng") || "0");
@@ -189,9 +241,10 @@ app.post("/api/upload", auth, async (req, res) => {
 			},
 			data: file.md5,
 			dirty: true,
+			key: `artwork:${allianceId}:${req.body.slug}`,
 		};
-		await redis.json.set(`artwork:${alliance.slug}:${artwork.slug}`, "$", artwork);
-		console.log(`Uploaded artwork: ${artwork.slug} for ${alliance.slug} by ${artwork.author} at position ${artwork.position.lat}, ${artwork.position.lon}`);
+		await redis.json.set(`artwork:${allianceId}:${artwork.slug}`, "$", artwork);
+		console.log(`Uploaded artwork: ${artwork.slug} for ${allianceId} by ${artwork.author} at position ${artwork.position.lat}, ${artwork.position.lon}`);
 		res.status(200).json({
 			message: "Artwork uploaded successfully",
 			artwork: {
@@ -208,13 +261,24 @@ app.post("/api/replaceImage", auth, async (req, res) => {
 	if(!req.auth.sub) {
 		return res.status(401).send("Unauthorized: No user ID found in token.");
 	}
-	// @ts-expect-error
-	const alliance = await getAllianceForUser(req.auth.sub);
-	if(!alliance) {
-		return res.status(403).send("Forbidden: You are not an admin of any alliance.");
-	}
 	if(!req.body.slug || !req.files || !req.files.file) {
 		return res.status(400).send("Missing required fields: slug and file.");
+	}
+	let allianceId = req.body.alliance || "wplacede";
+	if(isNaN(parseInt(allianceId))) {
+		// @ts-expect-error
+		const alliance = await getAllianceForUser(req.auth.sub);
+		if(!alliance) {
+			return res.status(403).send("Forbidden: You are not an admin of any alliance.");
+		}
+		if(alliance.slug !== req.body.alliance) {
+			return res.status(403).send("Forbidden: You are not allowed to replace images for this alliance.");
+		}
+	} else {
+		// @ts-expect-error
+		if(allianceId !== req.auth.sub.toString()) {
+			return res.status(403).send("Forbidden: You are not allowed to access this alliance.");
+		}
 	}
 	const slug = req.body.slug;
 	const file = req.files.file as fileUpload.UploadedFile;
@@ -223,7 +287,7 @@ app.post("/api/replaceImage", auth, async (req, res) => {
 		if (err) {
 			return res.status(500).send(err);
 		}
-		const existingArtwork = await redis.json.get(`artwork:${alliance.slug}:${slug}`);
+		const existingArtwork = await redis.json.get(`artwork:${allianceId}:${slug}`);
 		if (!existingArtwork) {
 			return res.status(404).send("Artwork not found.");
 		}
@@ -233,7 +297,7 @@ app.post("/api/replaceImage", auth, async (req, res) => {
 			data: file.md5,
 			dirty: true
 		};
-		await redis.json.set(`artwork:${alliance.slug}:${slug}`, "$", updatedArtwork);
+		await redis.json.set(`artwork:${allianceId}:${slug}`, "$", updatedArtwork);
 		console.log(`Replaced image for artwork: ${slug}`);
 		res.json({ message: "Image replaced successfully", artwork: updatedArtwork });
 		await generateTiles(redis);
@@ -244,25 +308,37 @@ app.delete("/api/artworks/:slug", auth, async (req, res) => {// @ts-expect-error
 	if(!req.auth.sub) {
 		return res.status(401).send({ success: false, message: "Unauthorized: No user ID found in token." });
 	}
-	// @ts-expect-error
-	const alliance = await getAllianceForUser(req.auth.sub);
-	if(!alliance) {
-		return res.status(403).send({ success: false, message: "Forbidden: You are not an admin of any alliance." });
+	if(!req.params.slug || !req.body.alliance) {
+		return res.status(400).send({ success: false, message: "Bad Request: Missing required fields: slug and alliance." });
 	}
-	// @ts-expect-error
-	const role = await getUserRole(req.auth.sub);
-	if(role !== "admin") {
-		return res.status(403).send({ success: false, message: "Forbidden: Only admins can delete artworks." });
+	let allianceId = req.body.alliance;
+	if(isNaN(parseInt(allianceId))) {
+		// @ts-expect-error
+		const alliance = await getAllianceForUser(req.auth.sub);
+		if(!alliance) {
+			return res.status(403).send({ success: false, message: "Forbidden: You are not an admin of any alliance." });
+		}
+
+		// @ts-expect-error
+		const role = await getUserRole(req.auth.sub);
+		if(role !== "admin") {
+			return res.status(403).send({ success: false, message: "Forbidden: Only admins can delete artworks." });
+		}
+	} else {
+		// @ts-expect-error
+		if(allianceId !== req.auth.sub.toString()) {
+			return res.status(403).send({ success: false, message: "Forbidden: You are not allowed to access this alliance." });
+		}
 	}
 	const slug = req.params.slug;
-	const artwork = await redis.json.get(`artwork:${alliance.slug}:${slug}`) as Artwork | null;
+	const artwork = await redis.json.get(`artwork:${allianceId}:${slug}`) as Artwork | null;
 	if (!artwork) {
 		return res.status(404).send({ success: false, message: "Artwork not found." });
 	}
 	if(artwork.protected) {
 		return res.status(403).send({ success: false, message: "Forbidden: This artwork is protected and cannot be deleted." });
 	}
-	await redis.json.del(`artwork:${alliance.slug}:${slug}`);
+	await redis.json.del(`artwork:${allianceId}:${slug}`);
 	console.log(`Deleted artwork: ${slug}`);
 	res.json({ message: "Artwork deleted successfully" });
 });
@@ -549,7 +625,7 @@ app.use("/tiles", (req, res, next) => {
 	}
 
 	next();
-}, express.static(path.join(__dirname, "..", "tiles")));
+}, express.static(path.join(__dirname, "..", "tiles", "stage")));
 
 const VALID_BLENDING_MODES: Blend[] = ["over", "difference", "out"];
 

@@ -8,6 +8,12 @@ import { spawn } from "child_process";
 import { mkdir } from "fs/promises";
 import { readdir } from "fs/promises";
 import { unlink } from "fs/promises";
+import { stat } from "fs/promises";
+import { copyFile } from "fs/promises";
+import { rename } from "fs/promises";
+import { rmdir } from "fs/promises";
+import { rm } from "fs/promises";
+import { join, relative } from "path";
 
 // const redis = await createClient({
 // 	url: process.env.REDIS_URL || "redis://localhost:6379"
@@ -122,10 +128,11 @@ export async function generateTile(
 	tileX: number,
 	tileY: number,
 	artworks: Artwork[],
+	user: string
 ) {
 	const start = Date.now();
 	console.log(
-		`Generating tile at (${tileX}, ${tileY}) with ${artworks.length} artworks`,
+		`[TILEGEN] Generating tile at (${tileX}, ${tileY}) for ${user} with ${artworks.length} artworks`,
 	);
 	const png = new PNG({
 		width: 1000,
@@ -162,25 +169,36 @@ export async function generateTile(
 			if (renderInfo) {
 				await renderImagePortionOnImage(png, img, renderInfo);
 				console.log(
-					`Rendered artwork ${artwork.slug} by ${artwork.author} portion at (${renderInfo.destX}, ${renderInfo.destY}) size (${renderInfo.width}x${renderInfo.height})`,
+					`[TILEGEN] Rendered artwork ${artwork.slug} by ${artwork.author} portion at (${renderInfo.destX}, ${renderInfo.destY}) size (${renderInfo.width}x${renderInfo.height})`,
 				);
 			}
 		} catch(e) {
-			console.log("Failed to render " + artwork.slug, e);
+			console.log("[TILEGEN] Failed to render " + artwork.slug, e);
 		}
 	}
 
+	const userInt = parseInt(user);
 	// Save the tile image
-	const tilePath = `./tiles/${tileX}/${tileY}_orig.png`;
+	const tilePath = isNaN(userInt) ? `./tiles/temp/${tileX}/${tileY}_orig.png` : `./tiles/temp/${userInt}/${tileX}/${tileY}_orig.png`;
 	// Create directory if it doesn't exist
-	if (!existsSync(`./tiles/${tileX}`)) {
-		await mkdir(`./tiles/${tileX}`, { recursive: true });
+	if(!isNaN(userInt)) {
+		if (!existsSync(`./tiles/temp/${user}/${tileX}`)) {
+			await mkdir(`./tiles/temp/${user}/${tileX}`, { recursive: true });
+		}
+	} else {
+		if (!existsSync(`./tiles/temp/${tileX}`)) {
+			await mkdir(`./tiles/temp/${tileX}`, { recursive: true });
+		}
 	}
+	await copyFile(`./src/border.py`, `./tiles/temp/border.py`);
 	await new Promise<void>((resolve) => {
 		png.pack().pipe(createWriteStream(tilePath)).on("finish", resolve);
 	});
-	await runCommand("python3", ["border.py", tileX + "/" + tileY], {
-		cwd: "tiles",
+	await runCommand("python3", [
+		"border.py",
+		isNaN(userInt) ? tileX + "/" + tileY : `${user}/${tileX}/${tileY}`
+	], {
+		cwd: "tiles/temp",
 	});
 
 	// If at least one artwork has the symbol flag, generate the symbol overlay
@@ -191,7 +209,7 @@ export async function generateTile(
 	}
 
 	const end = Date.now();
-	console.log(`Tile (${tileX}, ${tileY}) generated in ${end - start} ms`);
+	console.log(`[TILEGEN] Tile (${tileX}, ${tileY}) for ${user} generated in ${end - start} ms`);
 }
 
 function runCommand(cmd: string, args: string[] = [], options: any = {}) {
@@ -200,7 +218,7 @@ function runCommand(cmd: string, args: string[] = [], options: any = {}) {
 
 		proc.on("close", (code) => {
 			if (code === 0) resolve(code);
-			else reject(new Error(`Process exited with code ${code}`));
+			else reject(new Error(`[TILEGEN] Process exited with code ${code}`));
 		});
 
 		proc.on("error", reject);
@@ -266,22 +284,39 @@ export type Artwork = {
 	protected?: boolean; // Optional protected field
 	dirty?: boolean; // Optional dirty field to indicate if the artwork needs reprocessing
 	symbol?: boolean;
+	key: string; // Key in Redis for the artwork
 };
 
+let queue: string[] = [];
+
 export async function generateTiles(redis: ReturnType<typeof createClient>, ignoreDirty = false) {
+	const jobId = crypto.randomUUID();
+	queue.push(jobId);
+	if (queue.length > 1) {
+		console.log("[GENERATE] Another generateTiles request is already in progress, waiting for it to finish");
+		await new Promise((resolve) => {
+			const interval = setInterval(() => {
+				if (queue.length === 0 || queue[0] === jobId) {
+					clearInterval(interval);
+					resolve(null);
+				}
+			}, 1000);
+		});
+	}
+
 	const geo = new GeospatialConverter(1000);
 	const keys = await redis.keys("artwork:*");
 	const rawArtworks = await redis.json.mGet(keys, "$");
-	const artworks: (Artwork & { key: string })[] = rawArtworks.map((item: any, index: number) => {
+	const artworks: Artwork[] = rawArtworks.map((item: any, index: number) => {
 		// mGet returns an array of arrays (one per key), each containing the result or null
 		if (Array.isArray(item) && item.length > 0 && item[0] !== null) {
-			return { ...item[0], key: keys[index] } as (Artwork & { key: string });
+			return { ...item[0], key: keys[index] } as Artwork;
 		}
 		return null;
-	}).filter((a) => a !== null) as (Artwork & { key: string })[];
+	}).filter((a) => a !== null) as Artwork[];
 
 	// Group artworks by tile, considering artwork dimensions
-	const tiles: Map<string, (Artwork & { key: string })[]> = new Map();
+	const tiles: Map<string, Artwork[]> = new Map();
 	for (const artwork of artworks) {
 		let { lat, lon } = artwork.position;
 		lat = +Number(lat).toFixed(7);
@@ -307,20 +342,23 @@ export async function generateTiles(redis: ReturnType<typeof createClient>, igno
 				geo.tileSize,
 			);
 
+			const key = artwork.key;
+			const user = key.split(":")[1];
+
 			console.log(
-				`Artwork ${artwork.slug} (${img.width}x${img.height}) at (${lat}, ${lon}) spans ${affectedTiles.length} tiles`,
+				`[GENERATE] Artwork ${artwork.slug} (${img.width}x${img.height}) for ${user} at (${lat}, ${lon}) spans ${affectedTiles.length} tiles`,
 			);
 
 			// Add this artwork to all affected tiles
 			for (const affectedTile of affectedTiles) {
-				const tileKey = `${affectedTile.tileX}:${affectedTile.tileY}`;
+				const tileKey = `${user}:${affectedTile.tileX}:${affectedTile.tileY}`;
 				if (!tiles.has(tileKey)) {
 					tiles.set(tileKey, []);
 				}
 				tiles.get(tileKey)!.push(artwork);
 			}
 		} catch (error) {
-			console.error(`Error processing artwork ${artwork.slug}:`, error);
+			console.error(`[GENERATE] Error processing artwork ${artwork.slug}:`, error);
 			// Fallback to old behavior if artwork can't be loaded
 			const { tile: tileArr, pixel } = geo.latLonToTileAndPixel(lat, lon, ZOOM);
 			const tileKey = `${tileArr[0]}:${tileArr[1]}`;
@@ -337,75 +375,42 @@ export async function generateTiles(redis: ReturnType<typeof createClient>, igno
 
 	// Run generateTile for each tile (passing all artworks in that tile)
 	for (const [tileKey, artworksInTile] of tiles.entries()) {
-		const [tileX, tileY] = tileKey.split(":").map(Number);
+		const splitter = tileKey.split(":");
+		const [_, tileX, tileY] = splitter.map(Number);
+		const user = splitter[0]!;
 		if (ignoreDirty && artworksInTile.every((artwork) => !artwork.dirty)) {
-			console.log(`Skipping tile (${tileX}, ${tileY}) as all artworks are clean`);
+			console.log(`[GENERATE] Skipping tile (${tileX}, ${tileY}) for ${user} as all artworks are clean`);
 			continue;
 		}
-		await generateTile(tileX!, tileY!, artworksInTile);
+		await generateTile(tileX!, tileY!, artworksInTile, user);
 		for (const artwork of artworksInTile) {
 			artwork.dirty = false; // Reset dirty flag
 			await redis.json.set(artwork.key, "$", artwork);
 		}
 	}
 
-	// Clean up stale tiles that no longer have artworks
-	const activeTileKeys = new Set(tiles.keys());
+	// Swap folders
+	const tilesTemp = "./tiles/temp";
+	const tilesFolder = "./tiles/stage";
+	console.log(`[GENERATE] Swapping tiles from ${tilesTemp} to ${tilesFolder}`);
+	await swapDirs(tilesFolder, tilesTemp, "./tiles/backup");
 
-	try {
-		if (existsSync("./tiles")) {
-			const tileDirs = await readdir("./tiles");
+	queue = queue.filter((id) => id !== jobId);
+	console.log(`[GENERATE] Tile generation completed, queue length is now ${queue.length}`);
+}
 
-			for (const tileXDir of tileDirs) {
-				const tileXPath = `./tiles/${tileXDir}`;
+async function swapDirs(realDir: string, tempDir: string, backupDir: string) {
+  // Remove old backup if it exists
+  try { await rm(backupDir, { recursive: true, force: true }); } catch {}
 
-				try {
-					const tileYFiles = await readdir(tileXPath);
+  // Rename real → backup
+  await rename(realDir, backupDir);
 
-					for (const file of tileYFiles) {
-						// Extract tileY from filename (e.g., "123_orig.png" -> "123")
-						const match = file.match(/^(\d+)_orig\.png$/);
-						if (match) {
-							const tileY = match[1];
-							const tileKey = `${tileXDir}:${tileY}`;
+  // Rename temp → real
+  await rename(tempDir, realDir);
 
-							if (!activeTileKeys.has(tileKey)) {
-								console.log(`Removing stale tile: ${tileKey}`);
-								// Remove both the original and processed files
-								const origFile = `${tileXPath}/${tileY}_orig.png`;
-								const processedFile = `${tileXPath}/${tileY}.png`;
-
-								try {
-									if (existsSync(origFile)) {
-										await unlink(origFile);
-									}
-									if (existsSync(processedFile)) {
-										await unlink(processedFile);
-									}
-								} catch (error) {
-									console.error(
-										`Error removing tile files for ${tileKey}:`,
-										error,
-									);
-								}
-							}
-						}
-					}
-
-					// Check if directory is empty and remove it
-					const remainingFiles = await readdir(tileXPath);
-					if (remainingFiles.length === 0) {
-						await import("fs/promises").then((fs) => fs.rmdir(tileXPath));
-						console.log(`Removed empty tile directory: ${tileXDir}`);
-					}
-				} catch (error) {
-					console.error(`Error processing tile directory ${tileXDir}:`, error);
-				}
-			}
-		}
-	} catch (error) {
-		console.error("Error cleaning up stale tiles:", error);
-	}
+  // Optionally clean up backup
+  await rm(backupDir, { recursive: true, force: true });
 }
 
 // if (process.argv[1] === fileURLToPath(import.meta.url)) {

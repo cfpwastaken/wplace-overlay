@@ -5,6 +5,7 @@ const API_ROOT = "../api/";
 
 let authCoords = { lat: 0, lon: 0 };
 let token = "";
+let alliance = "";
 
 $("#login-button").addEventListener("click", async () => {
 	const res = await fetch(API_ROOT + "login");
@@ -22,7 +23,7 @@ $("#login-button").addEventListener("click", async () => {
 })
 
 async function updateAlliance() {
-	const res = await fetch(API_ROOT + "alliance", {
+	const res = await fetch(API_ROOT + "alliance?alliance=" + alliance, {
 		headers: {
 			"Authorization": "Bearer " + token
 		}
@@ -38,6 +39,31 @@ async function updateAlliance() {
 	$("#user").textContent = `Logged in as: ${decoded.preferred_username} (${data.name})`;
 }
 
+async function getAlliances() {
+	const res = await fetch(API_ROOT + "alliances", {
+		headers: {
+			"Authorization": "Bearer " + token
+		}
+	});
+	if (res.status != 200) {
+		console.error("Failed to fetch alliances");
+		return;
+	}
+	const data = await res.json();
+	if(data.length == 1) {
+		// If there's only one alliance, automatically select it
+		alliance = data[0];
+	} else {
+		if(confirm("You are a member of an alliance. Do you want to select it?")) {
+			alliance = data[1];
+		} else {
+			alliance = data[0];
+		}
+	}
+	updateAlliance();
+	await displayArtworks();
+}
+
 $("#confirm-button").addEventListener("click", async () => {
 	const res = await fetch(API_ROOT + "verifyLogin?lat=" + authCoords.lat + "&lon=" + authCoords.lon);
 	const status = res.status;
@@ -49,12 +75,11 @@ $("#confirm-button").addEventListener("click", async () => {
 	$("#login").style.display = "none";
 	$("#main").style.display = "";
 
-	await displayArtworks();
-	await updateAlliance();
+	await getAlliances();
 })
 
 async function displayArtworks() {
-	const res = await fetch(API_ROOT + "artworks", {
+	const res = await fetch(API_ROOT + "artworks/" + alliance, {
 		headers: {
 			"Authorization": "Bearer " + token
 		}
@@ -111,6 +136,7 @@ async function submitArtwork(e) {
 
 	const form = e.target;
 	const formData = new FormData(form);
+	formData.append("alliance", alliance);
 
 	try {
 		const response = await fetch(`${API_ROOT}upload`, {
