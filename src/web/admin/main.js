@@ -125,7 +125,7 @@ async function submitArtwork(e) {
 			console.log('Artwork uploaded successfully');
 			form.reset();
 			await displayArtworks();
-			document.getElementById('generate-dialog').showModal();
+			// document.getElementById('generate-dialog').showModal();
 		} else {
 			console.error('Upload failed:', response.statusText);
 			alert("Uploading artwork failed: " + response.statusText);
@@ -196,7 +196,7 @@ async function generateNow() {
 }
 
 $("#generate-now").addEventListener("click", generateNow);
-$("#rush-button").addEventListener("click", async () => {
-	document.getElementById('generate-dialog').close()
-	await generateNow();
-});
+// $("#rush-button").addEventListener("click", async () => {
+// 	document.getElementById('generate-dialog').close()
+// 	await generateNow();
+// });
