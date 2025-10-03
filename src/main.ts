@@ -182,7 +182,7 @@ app.post("/api/upload", auth, async (req, res) => {
 		}
 
 		const artwork: Artwork = {
-			slug: req.body.slug,
+			slug: req.body.slug.trim(),
 			author: req.body.author || "Unknown",
 			position: {
 				lat, lon
@@ -216,7 +216,7 @@ app.post("/api/replaceImage", auth, async (req, res) => {
 	if(!req.body.slug || !req.files || !req.files.file) {
 		return res.status(400).send("Missing required fields: slug and file.");
 	}
-	const slug = req.body.slug;
+	const slug = req.body.slug.trim();
 	const file = req.files.file as fileUpload.UploadedFile;
 	const newPath = path.join(__dirname, "..", "artworks", file.md5);
 	file.mv(newPath, async (err) => {
