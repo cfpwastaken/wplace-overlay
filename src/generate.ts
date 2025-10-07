@@ -162,7 +162,7 @@ export async function generateTile(
 			if (renderInfo) {
 				await renderImagePortionOnImage(png, img, renderInfo);
 				console.log(
-					`Rendered artwork ${artwork.slug} by ${artwork.author} portion at (${renderInfo.destX}, ${renderInfo.destY}) size (${renderInfo.width}x${renderInfo.height})`,
+					`Rendered artwork ${artwork.slug} portion at (${renderInfo.destX}, ${renderInfo.destY}) size (${renderInfo.width}x${renderInfo.height})`,
 				);
 			}
 		} catch(e) {
@@ -260,7 +260,6 @@ export type Artwork = {
 		lon: number;
 	};
 	slug: string;
-	author: string;
 	data: string;
 	priority?: number; // Optional priority field
 	protected?: boolean; // Optional protected field

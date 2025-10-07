@@ -183,7 +183,6 @@ app.post("/api/upload", auth, async (req, res) => {
 
 		const artwork: Artwork = {
 			slug: req.body.slug.trim(),
-			author: req.body.author || "Unknown",
 			position: {
 				lat, lon
 			},
@@ -191,7 +190,7 @@ app.post("/api/upload", auth, async (req, res) => {
 			dirty: true,
 		};
 		await redis.json.set(`artwork:${alliance.slug}:${artwork.slug}`, "$", artwork);
-		console.log(`Uploaded artwork: ${artwork.slug} for ${alliance.slug} by ${artwork.author} at position ${artwork.position.lat}, ${artwork.position.lon}`);
+		console.log(`Uploaded artwork: ${artwork.slug} for ${alliance.slug} at position ${artwork.position.lat}, ${artwork.position.lon}`);
 		res.status(200).json({
 			message: "Artwork uploaded successfully",
 			artwork: {

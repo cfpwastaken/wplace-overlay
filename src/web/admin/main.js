@@ -76,7 +76,6 @@ async function displayArtworks() {
 				<img src="../artworks/${artwork.data}" />
 				<div class="artwork-info">
 					<h3>${artwork.slug}</h3>
-					<p>Artist: ${artwork.author}</p>
 					<p>Position: <a href="https://wplace.live/?lat=${artwork.position.lat}&lng=${artwork.position.lon}&zoom=14.5&season=0&opaque=1&select=1" target="_blank">${artwork.position.lat}, ${artwork.position.lon}</a></p>
 				</div>
 			</div>

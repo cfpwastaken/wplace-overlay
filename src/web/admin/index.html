@@ -60,14 +60,12 @@
 			<div style="display: flex; gap: 15px;">
 				<form id="artwork-form" onsubmit="submitArtwork(event)" class="form" style="flex: 1; display: flex; flex-direction: column; gap: 10px;">
 					<input type="text" name="slug" placeholder="Slug" required>
-					<input type="text" name="artist" placeholder="Artist">
 					<input type="url" name="posurl" placeholder="Position URL" required>
 					<input type="file" name="file" accept=".png" required>
 					<button class="btn" type="submit">Submit</button>
 				</form>
 				<div style="flex: 1; display: flex; flex-direction: column; gap: 25px;">
 					<p>Slug: must be unique, all lowercase and not include spaces</p>
-					<p>Artist: optional</p>
 					<p>Position URL: must be a valid Wplace position URL (from the share button) for the top-left corner of the artwork</p>
 					<p>File: must be a <b>1:1 (not upscaled) PNG</b> image</p>
 				</div>
