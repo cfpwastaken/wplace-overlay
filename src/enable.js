@@ -412,9 +412,31 @@ function patchUI() {
 			});
 		});
 
+		let refreshTilesButton = document.createElement("button");
+		refreshTilesButton.textContent = "Refresh";
+		refreshTilesButton.style.backgroundColor = "#0e0e0e7f";
+		refreshTilesButton.style.color = "white";
+		refreshTilesButton.style.border = "solid";
+		refreshTilesButton.style.borderColor = "#1d1d1d7f";
+		refreshTilesButton.style.borderRadius = "4px";
+		refreshTilesButton.style.padding = "5px 10px";
+		refreshTilesButton.style.cursor = "pointer";
+		refreshTilesButton.style.backdropFilter = "blur(2px)";
+
+		refreshTilesButton.addEventListener("click", () => {
+			const map = getMap();
+			if (map.getLayer("pixel-art-layer")) {
+				map.refreshTiles("pixel-art-layer");
+			}
+			if (map.getLayer("overlay")) {
+				map.refreshTiles("overlay");
+			}
+		});
+
 		overlayOptions.appendChild(blendButton);
 		overlayOptions.appendChild(darkenMode);
 		overlayOptions.appendChild(styleButton);
+		overlayOptions.appendChild(refreshTilesButton);
 	}
 
 	let overlayButton = document.createElement("button");
@@ -487,6 +509,10 @@ async function initMap() {
 			ensureLayerOrder();
 		}
 	});
+
+	setInterval(() => {
+		map.refreshTiles("overlay");
+	}, 5 * 60 * 1000); // Refresh every 5 minutes
 }
 
 const observer = new MutationObserver(() => {
