@@ -18,6 +18,7 @@ const OVERLAY_MODES = ["off", "over", "symbol", "difference", "out", "fill"];
 let darken = IS_TAMPERMONKEY ? GM_getValue("DARKEN", false) : false;
 const STYLES = ["liberty", "positron", "bright", "dark", "fiord"];
 let currentStyle = "liberty";
+let darkMode = false;
 function getMap() {
 	const el = document.querySelector("div.absolute.bottom-3.right-3.z-30 > button")
 	return el
@@ -287,6 +288,23 @@ function ensureLayerOrder() {
 	}
 }
 
+function updateDarkMode() {
+	const html = document.querySelector("html");
+	if(darkMode) {
+		html.style.setProperty("color-scheme", "dark");
+		html.style.setProperty("--color-base-100", "#0e0e0e");
+		html.style.setProperty("--color-base-200", "#1d1d1d");
+		html.style.setProperty("--color-base-300", "#2e2e2e");
+		html.style.setProperty("--color-base-content", "whitesmoke");
+	} else {
+		html.style.removeProperty("color-scheme");
+		html.style.removeProperty("--color-base-100");
+		html.style.removeProperty("--color-base-200");
+		html.style.removeProperty("--color-base-300");
+		html.style.removeProperty("--color-base-content");
+	}
+}
+
 const symbolList = ["Black", "Dark Gray", "Gray", "Medium Gray", "Light Gray", "White", "Deep Red", "Dark Red", "Red", "Light Red", "Dark Orange", "Orange", "Gold", "Yellow", "Light Yellow", "Dark Goldenrod", "Goldenrod", "Light Goldenrod", "Dark Olive", "Olive", "Light Olive", "Dark Green", "Green", "Light Green", "Dark Teal", "Teal", "Light Teal", "Dark Cyan", "Cyan", "Light Cyan", "Dark Blue", "Blue", "Light Blue", "Dark Indigo", "Indigo", "Light Indigo", "Dark Slate Blue", "Slate Blue", "Light Slate Blue", "Dark Purple", "Purple", "Light Purple", "Dark Pink", "Pink", "Light Pink", "Dark Peach", "Peach", "Light Peach", "Dark Brown", "Brown", "Light Brown", "Dark Tan", "Tan", "Light Tan", "Dark Beige", "Beige", "Light Beige", "Dark Stone", "Stone", "Light Stone", "Dark Slate", "Slate", "Light Slate"];
 
 function patchUI() {
@@ -421,6 +439,25 @@ function patchUI() {
 			});
 		});
 
+		let darkModeButton = document.createElement("button");
+		darkModeButton.textContent = `UI Dark Mode: ${darkMode ? "On" : "Off"}`;
+		darkModeButton.style.backgroundColor = "#0e0e0e7f";
+		darkModeButton.style.color = "white";
+		darkModeButton.style.border = "solid";
+		darkModeButton.style.borderColor = "#1d1d1d7f";
+		darkModeButton.style.borderRadius = "4px";
+		darkModeButton.style.padding = "5px 10px";
+		darkModeButton.style.cursor = "pointer";
+		darkModeButton.style.backdropFilter = "blur(2px)";
+
+		darkModeButton.addEventListener("click", () => {
+			darkMode = !darkMode;
+			if(IS_TAMPERMONKEY) GM_setValue("DARK_MODE", darkMode);
+			darkModeButton.textContent = `UI Dark Mode: ${darkMode ? "On" : "Off"}`;
+			console.log("UI Dark Mode set to:", darkMode);
+			updateDarkMode();
+		});
+
 		let refreshTilesButton = document.createElement("button");
 		refreshTilesButton.textContent = "Refresh";
 		refreshTilesButton.style.backgroundColor = "#0e0e0e7f";
@@ -445,6 +482,7 @@ function patchUI() {
 		overlayOptions.appendChild(blendButton);
 		overlayOptions.appendChild(darkenMode);
 		overlayOptions.appendChild(styleButton);
+		overlayOptions.appendChild(darkModeButton);
 		overlayOptions.appendChild(refreshTilesButton);
 	}
 
