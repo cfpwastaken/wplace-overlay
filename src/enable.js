@@ -246,7 +246,7 @@ function updateOverlayMode() {
 			"raster-resampling": "nearest",
 			"raster-opacity": 1
 		}
-	})
+	}, "pixel-hover")
 
 	if(darken) {
 		map.addSource("darken", {
@@ -264,7 +264,26 @@ function updateOverlayMode() {
 				"raster-resampling": "nearest",
 				"raster-opacity": 1
 			}
-		})
+		}, "pixel-art-layer");
+	}
+}
+
+function ensureLayerOrder() {
+	const map = getMap();
+	if (!map.getLayer("overlay")) {
+		updateOverlayMode();
+		return;
+	}
+	const layers = map.getStyle().layers;
+	const overlayIndex = layers.findIndex(l => l.id === "overlay");
+	const hoverIndex = layers.findIndex(l => l.id === "pixel-hover");
+
+	if (overlayIndex === -1 || hoverIndex === -1) {
+		return;
+	}
+
+	if (hoverIndex - 1 !== overlayIndex) {
+		map.moveLayer("overlay", "pixel-hover");
 	}
 }
 
@@ -460,6 +479,14 @@ async function initMap() {
 		return;
 	}
 	updateOverlayMode();
+	map.on("click", () => {
+		ensureLayerOrder();
+	})
+	document.addEventListener("keydown", (e) => {
+		if (e.key === " ") { // Space key
+			ensureLayerOrder();
+		}
+	});
 }
 
 const observer = new MutationObserver(() => {
