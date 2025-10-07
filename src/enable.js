@@ -17,8 +17,8 @@ let overlayMode = IS_TAMPERMONKEY ? GM_getValue("OVERLAY_MODE", "over") : "over"
 const OVERLAY_MODES = ["off", "over", "symbol", "difference", "out", "fill"];
 let darken = IS_TAMPERMONKEY ? GM_getValue("DARKEN", false) : false;
 const STYLES = ["liberty", "positron", "bright", "dark", "fiord"];
-let currentStyle = "liberty";
-let darkMode = false;
+let currentStyle = IS_TAMPERMONKEY ? GM_getValue("STYLE", "liberty") : "liberty";
+let darkMode = IS_TAMPERMONKEY ? GM_getValue("DARK_MODE", false) : false;
 function getMap() {
 	const el = document.querySelector("div.absolute.bottom-3.right-3.z-30 > button")
 	return el
@@ -305,6 +305,37 @@ function updateDarkMode() {
 	}
 }
 
+async function updateMapStyle() {
+	const map = getMap();
+	const style = map.getStyle();
+	const pixelSource = style.sources["pixel-art-layer"];
+	const hoverSource = map.getSource("pixel-hover");
+	const pixelLayer = style.layers.find(l => l.id === "pixel-art-layer");
+	const hoverLayer = style.layers.find(l => l.id === "pixel-hover");
+	map.setStyle(await fetch("https://maps.wplace.live/styles/" + currentStyle).then(res => res.json()));
+	console.log(hoverSource, hoverLayer);
+	map.once("styledata", () => {
+		if (pixelSource && !map.getSource("pixel-art-layer")) {
+			map.addSource("pixel-art-layer", pixelSource);
+		}
+		if (hoverSource && !map.getSource("pixel-hover")) {
+			map.addSource("pixel-hover", {
+				type: "canvas",
+				canvas: hoverSource.canvas,
+				coordinates: hoverSource.coordinates,
+			});
+		}
+		if (pixelLayer && !map.getLayer("pixel-art-layer")) {
+			map.addLayer(pixelLayer);
+		}
+		if (hoverLayer && !map.getLayer("pixel-hover")) {
+			map.addLayer(hoverLayer);
+		}
+
+		updateOverlayMode();
+	});
+}
+
 const symbolList = ["Black", "Dark Gray", "Gray", "Medium Gray", "Light Gray", "White", "Deep Red", "Dark Red", "Red", "Light Red", "Dark Orange", "Orange", "Gold", "Yellow", "Light Yellow", "Dark Goldenrod", "Goldenrod", "Light Goldenrod", "Dark Olive", "Olive", "Light Olive", "Dark Green", "Green", "Light Green", "Dark Teal", "Teal", "Light Teal", "Dark Cyan", "Cyan", "Light Cyan", "Dark Blue", "Blue", "Light Blue", "Dark Indigo", "Indigo", "Light Indigo", "Dark Slate Blue", "Slate Blue", "Light Slate Blue", "Dark Purple", "Purple", "Light Purple", "Dark Pink", "Pink", "Light Pink", "Dark Peach", "Peach", "Light Peach", "Dark Brown", "Brown", "Light Brown", "Dark Tan", "Tan", "Light Tan", "Dark Beige", "Beige", "Light Beige", "Dark Stone", "Stone", "Light Stone", "Dark Slate", "Slate", "Light Slate"];
 
 function patchUI() {
@@ -407,36 +438,10 @@ function patchUI() {
 		styleButton.style.backdropFilter = "blur(2px)";
 
 		styleButton.addEventListener("click", async () => {
-			const map = getMap();
 			currentStyle = STYLES[(STYLES.indexOf(currentStyle) + 1) % STYLES.length];
 			styleButton.textContent = `Style: ${currentStyle.charAt(0).toUpperCase() + currentStyle.slice(1)}`;
-			const style = map.getStyle();
-			const pixelSource = style.sources["pixel-art-layer"];
-			const hoverSource = map.getSource("pixel-hover");
-			const pixelLayer = style.layers.find(l => l.id === "pixel-art-layer");
-			const hoverLayer = style.layers.find(l => l.id === "pixel-hover");
-			map.setStyle(await fetch("https://maps.wplace.live/styles/" + currentStyle).then(res => res.json()));
-			console.log(hoverSource, hoverLayer);
-			map.once("styledata", () => {
-				if (pixelSource && !map.getSource("pixel-art-layer")) {
-					map.addSource("pixel-art-layer", pixelSource);
-				}
-				if (hoverSource && !map.getSource("pixel-hover")) {
-					map.addSource("pixel-hover", {
-						type: "canvas",
-						canvas: hoverSource.canvas,
-						coordinates: hoverSource.coordinates,
-					});
-				}
-				if (pixelLayer && !map.getLayer("pixel-art-layer")) {
-					map.addLayer(pixelLayer);
-				}
-				if (hoverLayer && !map.getLayer("pixel-hover")) {
-					map.addLayer(hoverLayer);
-				}
-
-				updateOverlayMode();
-			});
+			if(IS_TAMPERMONKEY) GM_setValue("STYLE", currentStyle);
+			updateMapStyle();
 		});
 
 		let darkModeButton = document.createElement("button");
@@ -565,6 +570,8 @@ async function initMap() {
 		return;
 	}
 	updateOverlayMode();
+	updateDarkMode();
+	updateMapStyle();
 	map.on("click", () => {
 		ensureLayerOrder();
 	})
