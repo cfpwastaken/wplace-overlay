@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Wplace Overlay
 // @namespace    https://cfp.is-a.dev/wplace
-// @version      2.1
+// @version      3.0
 // @description  Overlay for Wplace
 // @author       cfp
 // @match        https://wplace.live/*
