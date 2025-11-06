@@ -185,6 +185,12 @@
 			document.querySelector("#tampermonkey").style.display = "none";
 			document.querySelector("#console").style.display = "none";
 		});
+		
+		const query = new URLSearchParams(location.search);
+		
+		if(query.get("utm_medium") == "qr" && query.get("utm_content") == "place2023") {
+			location.href = "/place/";
+		}
 	</script>
 </body>
 </html>
