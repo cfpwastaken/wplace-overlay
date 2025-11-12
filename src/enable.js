@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Wplace Overlay
 // @namespace    https://cfp.is-a.dev/wplace
-// @version      3.0
+// @version      3.1
 // @description  Overlay for Wplace
 // @author       cfp
 // @match        https://wplace.live/*
@@ -19,14 +19,6 @@ let darken = IS_TAMPERMONKEY ? GM_getValue("DARKEN", false) : false;
 const STYLES = ["liberty", "positron", "bright", "dark", "fiord"];
 let currentStyle = IS_TAMPERMONKEY ? GM_getValue("STYLE", "liberty") : "liberty";
 let darkMode = IS_TAMPERMONKEY ? GM_getValue("DARK_MODE", false) : false;
-function getMap() {
-	const el = document.querySelector("div.absolute.bottom-3.right-3.z-30 > button")
-	return el
-		? (el.__click
-			? el.__click[3].v
-			: null)
-		: null;
-}
 
 // =============================================================
 // Want to add your own image to the overlay?
@@ -119,7 +111,7 @@ window.fetch = unsafeWindow.fetch = new Proxy(fetch, {
 
 		if (url.hostname === "backend.wplace.live" && url.pathname.startsWith("/files/")) {
 			console.log("Intercepted fetch request to wplace.live");
-			if (overlayMode == "difference" || overlayMode == "out") {
+			if (overlayMode !== "off") {
 				const tileX = url.pathname.split("/")[4];
 				let tileY = url.pathname.split("/")[5];
 				if (overlayMode !== "over" && overlayMode !== "symbol") {
@@ -191,6 +183,8 @@ window.fetch = unsafeWindow.fetch = new Proxy(fetch, {
 					overlayMode
 				});
 
+				reloadText.style.display = "none";
+
 				return new Response(resultBlob, {
 					status: 200,
 					statusText: "OK",
@@ -200,93 +194,15 @@ window.fetch = unsafeWindow.fetch = new Proxy(fetch, {
 					}
 				});
 			}
+
+			reloadText.style.display = "none";
 		}
 
 		return target.apply(thisArg, argList);
 	}
 });
 
-function updateOverlayMode() {
-	const map = getMap();
-	if (map.getLayer("overlay")) {
-		map.removeLayer("overlay");
-	}
-	if (map.getSource("overlay")) {
-		map.removeSource("overlay");
-	}
-	if (map.getLayer("darken")) {
-		map.removeLayer("darken");
-	}
-	if (map.getSource("darken")) {
-		map.removeSource("darken");
-	}
-
-	if(overlayMode === "off" || overlayMode === "difference" || overlayMode === "out") {
-		map.refreshTiles("pixel-art-layer");
-		return;
-	}
-
-	const suffix = (overlayMode === "symbol")
-		? "_sym"
-		: overlayMode === "fill"
-			? "_orig"
-			: "";
-
-	map.addSource("overlay", {
-		type: "raster",
-		maxzoom: 11,
-		minzoom: 11,
-		tileSize: 550,
-		tiles: [`https://${HOST}${SUBPATH}/tiles/{x}/{y}${suffix}.png`]
-	});
-	map.addLayer({
-		id: "overlay",
-		type: "raster",
-		source: "overlay",
-		paint: {
-			"raster-resampling": "nearest",
-			"raster-opacity": 1
-		}
-	}, "pixel-hover")
-
-	if(darken) {
-		map.addSource("darken", {
-			type: "raster",
-			maxzoom: 11,
-			minzoom: 11,
-			tileSize: 550,
-			tiles: [`https://${HOST}${SUBPATH}/darken.png`]
-		});
-		map.addLayer({
-			id: "darken",
-			type: "raster",
-			source: "darken",
-			paint: {
-				"raster-resampling": "nearest",
-				"raster-opacity": 1
-			}
-		}, "pixel-art-layer");
-	}
-}
-
-function ensureLayerOrder() {
-	const map = getMap();
-	if (!map.getLayer("overlay")) {
-		updateOverlayMode();
-		return;
-	}
-	const layers = map.getStyle().layers;
-	const overlayIndex = layers.findIndex(l => l.id === "overlay");
-	const hoverIndex = layers.findIndex(l => l.id === "pixel-hover");
-
-	if (overlayIndex === -1 || hoverIndex === -1) {
-		return;
-	}
-
-	if (hoverIndex - 1 !== overlayIndex) {
-		map.moveLayer("overlay", "pixel-hover");
-	}
-}
+let reloadText = document.createElement("span");
 
 function updateDarkMode() {
 	const html = document.querySelector("html");
@@ -303,37 +219,6 @@ function updateDarkMode() {
 		html.style.removeProperty("--color-base-300");
 		html.style.removeProperty("--color-base-content");
 	}
-}
-
-async function updateMapStyle() {
-	const map = getMap();
-	const style = map.getStyle();
-	const pixelSource = style.sources["pixel-art-layer"];
-	const hoverSource = map.getSource("pixel-hover");
-	const pixelLayer = style.layers.find(l => l.id === "pixel-art-layer");
-	const hoverLayer = style.layers.find(l => l.id === "pixel-hover");
-	map.setStyle(await fetch("https://maps.wplace.live/styles/" + currentStyle).then(res => res.json()));
-	console.log(hoverSource, hoverLayer);
-	map.once("styledata", () => {
-		if (pixelSource && !map.getSource("pixel-art-layer")) {
-			map.addSource("pixel-art-layer", pixelSource);
-		}
-		if (hoverSource && !map.getSource("pixel-hover")) {
-			map.addSource("pixel-hover", {
-				type: "canvas",
-				canvas: hoverSource.canvas,
-				coordinates: hoverSource.coordinates,
-			});
-		}
-		if (pixelLayer && !map.getLayer("pixel-art-layer")) {
-			map.addLayer(pixelLayer);
-		}
-		if (hoverLayer && !map.getLayer("pixel-hover")) {
-			map.addLayer(hoverLayer);
-		}
-
-		updateOverlayMode();
-	});
 }
 
 const symbolList = ["Black", "Dark Gray", "Gray", "Medium Gray", "Light Gray", "White", "Deep Red", "Dark Red", "Red", "Light Red", "Dark Orange", "Orange", "Gold", "Yellow", "Light Yellow", "Dark Goldenrod", "Goldenrod", "Light Goldenrod", "Dark Olive", "Olive", "Light Olive", "Dark Green", "Green", "Light Green", "Dark Teal", "Teal", "Light Teal", "Dark Cyan", "Cyan", "Light Cyan", "Dark Blue", "Blue", "Light Blue", "Dark Indigo", "Indigo", "Light Indigo", "Dark Slate Blue", "Slate Blue", "Light Slate Blue", "Dark Purple", "Purple", "Light Purple", "Dark Pink", "Pink", "Light Pink", "Dark Peach", "Peach", "Light Peach", "Dark Brown", "Brown", "Light Brown", "Dark Tan", "Tan", "Light Tan", "Dark Beige", "Beige", "Light Beige", "Dark Stone", "Stone", "Light Stone", "Dark Slate", "Slate", "Light Slate"];
@@ -404,7 +289,7 @@ function patchUI() {
 			if (IS_TAMPERMONKEY) GM_setValue("OVERLAY_MODE", overlayMode);
 			blendButton.textContent = `Overlay: ${overlayMode.charAt(0).toUpperCase() + overlayMode.slice(1)}`;
 			console.log("Overlay mode set to:", overlayMode);
-			updateOverlayMode();
+			reloadText.style.display = "";
 		});
 
 		let darkenMode = document.createElement("button");
@@ -423,25 +308,7 @@ function patchUI() {
 			if(IS_TAMPERMONKEY) GM_setValue("DARKEN", darken);
 			darkenMode.textContent = `Darken: ${darken ? "On" : "Off"}`;
 			console.log("Darken mode set to:", darken);
-			updateOverlayMode();
-		});
-
-		let styleButton = document.createElement("button");
-		styleButton.textContent = `Style: ${currentStyle.charAt(0).toUpperCase() + currentStyle.slice(1)}`;
-		styleButton.style.backgroundColor = "#0e0e0e7f";
-		styleButton.style.color = "white";
-		styleButton.style.border = "solid";
-		styleButton.style.borderColor = "#1d1d1d7f";
-		styleButton.style.borderRadius = "4px";
-		styleButton.style.padding = "5px 10px";
-		styleButton.style.cursor = "pointer";
-		styleButton.style.backdropFilter = "blur(2px)";
-
-		styleButton.addEventListener("click", async () => {
-			currentStyle = STYLES[(STYLES.indexOf(currentStyle) + 1) % STYLES.length];
-			styleButton.textContent = `Style: ${currentStyle.charAt(0).toUpperCase() + currentStyle.slice(1)}`;
-			if(IS_TAMPERMONKEY) GM_setValue("STYLE", currentStyle);
-			updateMapStyle();
+			reloadText.style.display = "";
 		});
 
 		let darkModeButton = document.createElement("button");
@@ -463,32 +330,9 @@ function patchUI() {
 			updateDarkMode();
 		});
 
-		let refreshTilesButton = document.createElement("button");
-		refreshTilesButton.textContent = "Refresh";
-		refreshTilesButton.style.backgroundColor = "#0e0e0e7f";
-		refreshTilesButton.style.color = "white";
-		refreshTilesButton.style.border = "solid";
-		refreshTilesButton.style.borderColor = "#1d1d1d7f";
-		refreshTilesButton.style.borderRadius = "4px";
-		refreshTilesButton.style.padding = "5px 10px";
-		refreshTilesButton.style.cursor = "pointer";
-		refreshTilesButton.style.backdropFilter = "blur(2px)";
-
-		refreshTilesButton.addEventListener("click", () => {
-			const map = getMap();
-			if (map.getLayer("pixel-art-layer")) {
-				map.refreshTiles("pixel-art-layer");
-			}
-			if (map.getLayer("overlay")) {
-				map.refreshTiles("overlay");
-			}
-		});
-
 		overlayOptions.appendChild(blendButton);
 		overlayOptions.appendChild(darkenMode);
-		overlayOptions.appendChild(styleButton);
 		overlayOptions.appendChild(darkModeButton);
-		overlayOptions.appendChild(refreshTilesButton);
 	}
 
 	let overlayButton = document.createElement("button");
@@ -523,12 +367,22 @@ function patchUI() {
 	});
 
 	const buttonContainer = document.querySelector("div.gap-4:nth-child(1) > div:nth-child(2)");
-	const leftSidebar = document.querySelector("html body div div.disable-pinch-zoom.relative.h-full.overflow-hidden.svelte-6wmtgk div.absolute.right-2.top-2.z-30 div.flex.flex-col.gap-4.items-center");
+	const leftSidebar = document.querySelector("div.gap-4:nth-child(1)");
 	const paintMenu = document.querySelector("div.rounded-t-box > div.relative.px-3 > div.mb-4.mt-3 div")
 	if (buttonContainer) {
 		buttonContainer.appendChild(overlayButton);
 		buttonContainer.classList.remove("items-center");
 		buttonContainer.classList.add("items-end");
+
+		reloadText.textContent = "Zoom out and in to load the overlay!";
+		reloadText.style.color = "red";
+		reloadText.style.fontWeight = "bold";
+		reloadText.style.maxWidth = "200px";
+		reloadText.style.textAlign = "right";
+		reloadText.style.backgroundColor = "#ffffff7f";
+		reloadText.style.borderRadius = "4px";
+		reloadText.style.backdropFilter = "blur(2px)";
+		buttonContainer.appendChild(reloadText);
 	}
 	if (leftSidebar) {
 		leftSidebar.classList.add("items-end");
@@ -560,32 +414,6 @@ function patchUI() {
 	}
 }
 
-async function initMap() {
-	if(!getMap()) {
-		await new Promise(resolve => setTimeout(resolve, 2000));
-	}
-	const map = getMap();
-	if (!map) {
-		console.error("Map object not found!");
-		return;
-	}
-	updateOverlayMode();
-	updateDarkMode();
-	updateMapStyle();
-	map.on("click", () => {
-		ensureLayerOrder();
-	})
-	document.addEventListener("keydown", (e) => {
-		if (e.key === " ") { // Space key
-			ensureLayerOrder();
-		}
-	});
-
-	setInterval(() => {
-		map.refreshTiles("overlay");
-	}, 5 * 60 * 1000); // Refresh every 5 minutes
-}
-
 const observer = new MutationObserver(() => {
 	patchUI();
 });
@@ -596,4 +424,3 @@ observer.observe(document.querySelector("div.gap-4:nth-child(1)"), {
 });
 
 patchUI();
-initMap();
