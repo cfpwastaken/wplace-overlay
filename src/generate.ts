@@ -8,6 +8,7 @@ import { spawn } from "child_process";
 import { mkdir } from "fs/promises";
 import { readdir } from "fs/promises";
 import { unlink } from "fs/promises";
+import { metrics } from "./main";
 
 // const redis = await createClient({
 // 	url: process.env.REDIS_URL || "redis://localhost:6379"
@@ -270,6 +271,7 @@ export type Artwork = {
 export async function generateTiles(redis: ReturnType<typeof createClient>, ignoreDirty = false) {
 	const geo = new GeospatialConverter(1000);
 	const keys = await redis.keys("artwork:*");
+	metrics.totalArtworks.set(keys.length);
 	const rawArtworks = await redis.json.mGet(keys, "$");
 	const artworks: (Artwork & { key: string })[] = rawArtworks.map((item: any, index: number) => {
 		// mGet returns an array of arrays (one per key), each containing the result or null
@@ -334,6 +336,8 @@ export async function generateTiles(redis: ReturnType<typeof createClient>, igno
 		artworksInTile.sort((a, b) => (b.priority || 0) - (a.priority || 0));
 	}
 
+	const end = metrics.generationTime.startTimer();
+
 	// Run generateTile for each tile (passing all artworks in that tile)
 	for (const [tileKey, artworksInTile] of tiles.entries()) {
 		const [tileX, tileY] = tileKey.split(":").map(Number);
@@ -347,6 +351,8 @@ export async function generateTiles(redis: ReturnType<typeof createClient>, igno
 			await redis.json.set(artwork.key, "$", artwork);
 		}
 	}
+
+	end();
 
 	// Clean up stale tiles that no longer have artworks
 	const activeTileKeys = new Set(tiles.keys());

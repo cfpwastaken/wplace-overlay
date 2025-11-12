@@ -14,11 +14,28 @@ import rateLimit from "express-rate-limit";
 import { GeospatialConverter } from "./wplace";
 import { PNG } from "pngjs";
 import slowDown from "express-slow-down";
+import { collectDefaultMetrics, Counter, Gauge, Histogram, Registry } from "prom-client";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const JWT_SECRET = process.env.JWT_SECRET || "wplace";
 const JWT_ISSUER = process.env.JWT_ISSUER || "localhost";
+const registry = new Registry();
+collectDefaultMetrics({
+	prefix: "node_",
+	gcDurationBuckets: [0.001, 0.01, 0.1, 1, 2, 5],
+	register: registry,
+})
+
+export const metrics = {
+	requests: new Counter({ name: "requests_total", help: "Total number of requests" }),
+	totalArtworks: new Gauge({ name: "total_artworks", help: "Total number of artworks stored" }),
+	generationTime: new Histogram({ name: "tile_generation_time_seconds", help: "Time taken to generate tiles", buckets: [0.5, 1, 2, 5, 10, 20, 30, 60] }),
+}
+
+for (const metric of Object.values(metrics)) {
+	registry.registerMetric(metric);
+}
 
 if(JWT_SECRET === "wplace") {
 	console.warn("WARNING: Using default JWT_SECRET. This is insecure and should be changed in production!");
@@ -35,6 +52,7 @@ app.set("trust proxy", 1);
 
 app.use((req, res, next) => {
 	console.log(`${req.method} request for '${req.url}'`);
+	metrics.requests.inc();
 	next();
 });
 
@@ -48,6 +66,11 @@ app.use(fileUpload({
 
 app.get("/", (req, res) => {
 	res.sendFile(path.join(__dirname, "index.html"));
+});
+
+app.get("/metrics", async (req, res) => {
+	res.setHeader("Content-Type", registry.contentType);
+	res.send(await registry.metrics());
 });
 
 app.get("/dracula.css", (req, res) => {
