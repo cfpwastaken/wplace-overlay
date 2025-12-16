@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Wplace Overlay
 // @namespace    https://cfp.is-a.dev/wplace
-// @version      3.1
+// @version      3.2
 // @description  Overlay for Wplace
 // @author       cfp
 // @match        https://wplace.live/*
@@ -424,3 +424,20 @@ observer.observe(document.querySelector("div.gap-4:nth-child(1)"), {
 });
 
 patchUI();
+
+fetch(`https://${HOST}${SUBPATH}/api/motd`).catch(err => {
+	alert("[Wplace Overlay] Server unreachable / Server nicht erreichbar:\n" + err.message);
+}).then(async (res) => {
+	if (!res) return;
+	if (res.status !== 200) {
+		alert(`[Wplace Overlay] Failed to contact Server / Fehler beim Kontaktieren des Servers: ${res.status} ${res.statusText}`);
+		return;
+	}
+	const data = await res.json().catch(() => {
+		alert("[Wplace Overlay] Invalid response from server / Ungültige Antwort vom Server.");
+		return null;
+	});
+	if (data && data.motd) {
+		alert("[Wplace Overlay] " + data.motd);
+	}
+});

@@ -101,6 +101,19 @@ const auth = expressjwt({
 	issuer: JWT_ISSUER
 });
 
+app.get("/api/motd", async (req, res) => {
+	res.setHeader("Access-Control-Allow-Origin", "https://wplace.live");
+	res.setHeader("Access-Control-Allow-Methods", "GET, POST, OPTIONS");
+	res.setHeader("Access-Control-Allow-Headers", "Content-Type");
+	
+	if (req.method === "OPTIONS") {
+		return res.sendStatus(204); // No Content
+	}
+
+	const motd = await redis.get("motd");
+	res.json({ motd });
+})
+
 app.get("/api/alliance", auth, async (req, res) => {
 	// @ts-expect-error
 	if(!req.auth.sub) {
