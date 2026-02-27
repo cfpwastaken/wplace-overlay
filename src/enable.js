@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         Wplace Overlay
 // @namespace    https://cfp.is-a.dev/wplace
-// @version      3.2
+// @version      3.3
 // @description  Overlay for Wplace
 // @author       cfp
 // @match        https://wplace.live/*
@@ -109,11 +109,11 @@ window.fetch = unsafeWindow.fetch = new Proxy(fetch, {
 			throw new Error("Invalid URL provided to fetch");
 		}
 
-		if (url.hostname === "backend.wplace.live" && url.pathname.startsWith("/files/")) {
+		if (url.hostname === "backend.wplace.live" && url.pathname.startsWith("/tile/")) {
 			console.log("Intercepted fetch request to wplace.live");
 			if (overlayMode !== "off") {
-				const tileX = url.pathname.split("/")[4];
-				let tileY = url.pathname.split("/")[5];
+				const tileX = url.pathname.split("/")[2];
+				let tileY = url.pathname.split("/")[3];
 				if (overlayMode !== "over" && overlayMode !== "symbol") {
 					tileY = tileY.replace(".png", "_orig.png");
 				}
